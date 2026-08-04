@@ -6,6 +6,7 @@ import productsRouter from './server/routes/products.js';
 import ordersRouter from './server/routes/orders.js';
 import adminRouter from './server/routes/admin.js';
 import authRouter from './server/routes/auth.js';
+import { apiNotFoundHandler, errorHandler } from './server/errors.js';
 
 async function startServer() {
   const app = express();
@@ -15,13 +16,10 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Initialize and verify database on boot
-  try {
-    await getDb();
-    console.log('ROYALS SQLite Relational Database Initialized & Synced');
-  } catch (err) {
-    console.error('Database initialization warning:', err);
-  }
+  // Initialize and verify database on boot. A broken database means every request
+  // would fail, so refuse to start rather than serving a degraded API.
+  await getDb();
+  console.log('ROYALS SQLite Relational Database Initialized & Synced');
 
   // Store information API endpoint
   app.get('/api/store-info', (req, res) => {
@@ -61,6 +59,9 @@ async function startServer() {
   app.use('/api/admin', adminRouter);
   app.use('/api/auth', authRouter);
 
+  // Unknown API routes must not fall through to the SPA handler
+  app.use('/api', apiNotFoundHandler);
+
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -71,10 +72,14 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get('*', (req, res, next) => {
+      res.sendFile(path.join(distPath, 'index.html'), (err) => {
+        if (err) next(err);
+      });
     });
   }
+
+  app.use(errorHandler);
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`ROYALS Luxury Fashion server running on http://localhost:${PORT}`);
@@ -83,4 +88,5 @@ async function startServer() {
 
 startServer().catch((err) => {
   console.error('Failed to start ROYALS server:', err);
+  process.exit(1);
 });

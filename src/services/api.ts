@@ -15,57 +15,82 @@ import {
 
 const API_BASE = '/api';
 
-// Helper for fetch with token
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+/**
+ * Error thrown for every failed API call, carrying the HTTP status so callers can
+ * distinguish "not found", "session expired" and server failures.
+ */
+export class ApiError extends Error {
+  status: number;
+  endpoint: string;
+
+  constructor(message: string, status: number, endpoint: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.endpoint = endpoint;
+  }
+
+  /** True when the request never reached the server (offline, DNS, aborted). */
+  get isNetworkError(): boolean {
+    return this.status === 0;
+  }
+}
+
+async function send<T>(endpoint: string, options: RequestInit, token: string | null): Promise<T> {
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
-
-  // Attach customer token if available
-  const userToken = localStorage.getItem('royals_user_token');
-  if (userToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${userToken}`);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  } catch (err) {
+    throw new ApiError(
+      `Unable to reach the ROYALS server. Check your connection and try again. (${
+        err instanceof Error ? err.message : String(err)
+      })`,
+      0,
+      endpoint
+    );
+  }
 
-  const data = await response.json();
+  const rawBody = await response.text();
+  let data: any = null;
+  if (rawBody) {
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      // A non-JSON body (proxy error page, HTML fallback) must not surface as a
+      // confusing JSON parse error.
+      throw new ApiError(
+        response.ok
+          ? 'The server returned an unreadable response.'
+          : `Request failed with status ${response.status}.`,
+        response.ok ? 500 : response.status,
+        endpoint
+      );
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(data.error || 'An unexpected error occurred');
+    throw new ApiError(data?.error || `Request failed with status ${response.status}.`, response.status, endpoint);
   }
 
   return data as T;
 }
 
+// Helper for fetch with customer token
+function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return send<T>(endpoint, options, localStorage.getItem('royals_user_token'));
+}
+
 // Helper for admin request with admin token
-async function adminRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  const adminToken = localStorage.getItem('royals_admin_token');
-  if (adminToken) {
-    headers.set('Authorization', `Bearer ${adminToken}`);
-  }
-
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || 'An unexpected error occurred in Admin request');
-  }
-
-  return data as T;
+function adminRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return send<T>(endpoint, options, localStorage.getItem('royals_admin_token'));
 }
 
 export const api = {

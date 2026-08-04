@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, Product } from '../types';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 interface CartContextType {
   items: CartItem[];
@@ -29,7 +29,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const saved = localStorage.getItem('royals_cart_items');
       return saved ? JSON.parse(saved) : [];
-    } catch {
+    } catch (err) {
+      console.warn('Discarding corrupt stored cart:', err);
+      localStorage.removeItem('royals_cart_items');
       return [];
     }
   });
@@ -62,11 +64,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCouponDiscount(res.discountAmount);
           setCouponMessage(res.message);
         })
-        .catch(() => {
-          setAppliedCoupon(null);
-          setCouponDiscount(0);
-          setCouponMessage(null);
-          localStorage.removeItem('royals_applied_coupon');
+        .catch((err) => {
+          const isRejectedCoupon = err instanceof ApiError && err.status >= 400 && err.status < 500;
+          if (isRejectedCoupon) {
+            setAppliedCoupon(null);
+            setCouponDiscount(0);
+            setCouponMessage(err.message);
+            localStorage.removeItem('royals_applied_coupon');
+            return;
+          }
+          // Keep the coupon applied when validation could not be completed
+          console.error('Coupon revalidation failed:', err);
+          setCouponMessage(
+            err instanceof Error
+              ? `Coupon could not be revalidated: ${err.message}`
+              : 'Coupon could not be revalidated.'
+          );
         });
     } else {
       setCouponDiscount(0);

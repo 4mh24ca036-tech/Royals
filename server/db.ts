@@ -24,33 +24,46 @@ export async function getDb(): Promise<Database> {
       const fileBuffer = fs.readFileSync(DB_FILE);
       db = new SQL.Database(fileBuffer);
     } catch (err) {
-      console.error('Error loading database file, creating fresh database:', err);
-      db = new SQL.Database();
+      // Silently starting from an empty database would discard existing orders and
+      // customers, so surface the failure instead.
+      throw new Error(
+        `Unable to open existing ROYALS database at ${DB_FILE}: ${err instanceof Error ? err.message : String(err)}. ` +
+          'Restore or remove the file before restarting.'
+      );
     }
   } else {
     db = new SQL.Database();
   }
 
   dbInstance = db;
-  initializeSchema(db);
-  seedInitialData(db);
-  persistDb();
+  try {
+    initializeSchema(db);
+    seedInitialData(db);
+    persistDb();
+  } catch (err) {
+    // Never cache a half-initialized database: a later call must be able to retry.
+    dbInstance = null;
+    db.close();
+    throw err;
+  }
 
-  return dbInstance;
+  return db;
 }
 
+/**
+ * Flushes the in-memory database to disk. Throws when the write fails so callers
+ * report the failure rather than acknowledging writes that were never persisted.
+ */
 export function persistDb() {
-  if (!dbInstance) return;
-  try {
-    const data = dbInstance.export();
-    const buffer = Buffer.from(data);
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(DB_FILE, buffer);
-  } catch (err) {
-    console.error('Failed to persist database to disk:', err);
+  if (!dbInstance) {
+    throw new Error('Cannot persist ROYALS database before it has been initialized');
   }
+  const data = dbInstance.export();
+  const buffer = Buffer.from(data);
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  fs.writeFileSync(DB_FILE, buffer);
 }
 
 function initializeSchema(db: Database) {

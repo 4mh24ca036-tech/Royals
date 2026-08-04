@@ -51,6 +51,7 @@ function RoyalsApp() {
   const [products, setProducts] = useState<Product[]>([]);
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filter & Search states
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -66,6 +67,7 @@ function RoyalsApp() {
 
   // Load Categories & Products on mount
   const loadInitialData = async () => {
+    setLoadError(null);
     try {
       const [cats, prods, info] = await Promise.all([
         api.getCategories(),
@@ -77,6 +79,7 @@ function RoyalsApp() {
       setStoreInfo(info);
     } catch (err) {
       console.error('Failed to load initial atelier data:', err);
+      setLoadError(err instanceof Error ? err.message : 'Unable to load the ROYALS collection.');
     } finally {
       setIsLoading(false);
     }
@@ -167,6 +170,24 @@ function RoyalsApp() {
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenStoreModal={() => setIsStoreModalOpen(true)}
       />
+
+      {/* Collection load failure must be visible rather than showing an empty catalogue */}
+      {loadError && !isLoading && (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <p className="text-sm text-red-800">{loadError}</p>
+            <button
+              onClick={() => {
+                setIsLoading(true);
+                loadInitialData();
+              }}
+              className="self-start sm:self-auto text-xs font-semibold uppercase tracking-widest text-red-900 underline cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Dynamic View Content */}
       <main className="flex-1">

@@ -2,35 +2,25 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
 import { generateUserToken, authenticateUser } from '../auth.js';
+import { queryAll } from '../dbUtils.js';
+import { asyncHandler, HttpError } from '../errors.js';
 
 const router = Router();
 
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
-
 // CUSTOMER REGISTER
-router.post('/register', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/register',
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { name, email, phone, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
+      throw new HttpError(400, 'Name, email, and password are required');
     }
 
     const existing = queryAll(db, 'SELECT id FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'An account with this email address already exists' });
+      throw new HttpError(409, 'An account with this email address already exists');
     }
 
     const salt = bcrypt.genSaltSync(10);
@@ -72,30 +62,29 @@ router.post('/register', async (req: Request, res: Response) => {
         role: 'customer'
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // CUSTOMER LOGIN
-router.post('/login', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/login',
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      throw new HttpError(400, 'Email and password are required');
     }
 
     const users = queryAll(db, 'SELECT * FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
     if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      throw new HttpError(401, 'Invalid email or password');
     }
 
     const user = users[0];
     const match = bcrypt.compareSync(password, user.password_hash);
     if (!match) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      throw new HttpError(401, 'Invalid email or password');
     }
 
     const token = generateUserToken({
@@ -115,20 +104,20 @@ router.post('/login', async (req: Request, res: Response) => {
         role: user.role
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET CURRENT USER PROFILE
-router.get('/me', authenticateUser, async (req: any, res: Response) => {
-  try {
+router.get(
+  '/me',
+  authenticateUser,
+  asyncHandler(async (req: any, res: Response) => {
     const db = await getDb();
     const userId = req.user.id;
 
     const users = queryAll(db, 'SELECT id, name, email, phone, role, created_at FROM users WHERE id = ? LIMIT 1', [userId]);
     if (users.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      throw new HttpError(404, 'User not found');
     }
 
     const user = users[0];
@@ -140,20 +129,20 @@ router.get('/me', authenticateUser, async (req: any, res: Response) => {
       addresses,
       notifications
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // ADD ADDRESS
-router.post('/addresses', authenticateUser, async (req: any, res: Response) => {
-  try {
+router.post(
+  '/addresses',
+  authenticateUser,
+  asyncHandler(async (req: any, res: Response) => {
     const db = await getDb();
     const userId = req.user.id;
     const { fullName, phone, addressLine1, addressLine2, landmark, city, state, pincode, isDefault } = req.body;
 
     if (!fullName || !phone || !addressLine1 || !city || !state || !pincode) {
-      return res.status(400).json({ error: 'Missing required address fields' });
+      throw new HttpError(400, 'Missing required address fields');
     }
 
     const id = `addr_${Date.now()}`;
@@ -173,66 +162,76 @@ router.post('/addresses', authenticateUser, async (req: any, res: Response) => {
 
     const addresses = queryAll(db, 'SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, created_at DESC', [userId]);
     res.status(201).json(addresses);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // DELETE ADDRESS
-router.delete('/addresses/:id', authenticateUser, async (req: any, res: Response) => {
-  try {
+router.delete(
+  '/addresses/:id',
+  authenticateUser,
+  asyncHandler(async (req: any, res: Response) => {
     const db = await getDb();
     const userId = req.user.id;
     const { id } = req.params;
+
+    const owned = queryAll(db, 'SELECT id FROM addresses WHERE id = ? AND user_id = ? LIMIT 1', [id, userId]);
+    if (owned.length === 0) {
+      throw new HttpError(404, 'Address not found');
+    }
 
     db.run('DELETE FROM addresses WHERE id = ? AND user_id = ?', [id, userId]);
     persistDb();
 
     const addresses = queryAll(db, 'SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, created_at DESC', [userId]);
     res.json(addresses);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // MARK NOTIFICATION READ
-router.patch('/notifications/:id/read', authenticateUser, async (req: any, res: Response) => {
-  try {
+router.patch(
+  '/notifications/:id/read',
+  authenticateUser,
+  asyncHandler(async (req: any, res: Response) => {
     const db = await getDb();
     const userId = req.user.id;
     const { id } = req.params;
+
+    const owned = queryAll(db, 'SELECT id FROM notifications WHERE id = ? AND user_id = ? LIMIT 1', [id, userId]);
+    if (owned.length === 0) {
+      throw new HttpError(404, 'Notification not found');
+    }
 
     db.run('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', [id, userId]);
     persistDb();
 
     res.json({ message: 'Notification marked as read' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // VALIDATE COUPON
-router.post('/coupons/validate', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/coupons/validate',
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { code, subtotal } = req.body;
 
     if (!code) {
-      return res.status(400).json({ error: 'Coupon code is required' });
+      throw new HttpError(400, 'Coupon code is required');
     }
 
     const coupons = queryAll(db, 'SELECT * FROM coupons WHERE code = ? AND is_active = 1 LIMIT 1', [code.toUpperCase().trim()]);
     if (coupons.length === 0) {
-      return res.status(400).json({ error: 'Invalid or expired coupon code' });
+      throw new HttpError(400, 'Invalid or expired coupon code');
     }
 
     const coupon = coupons[0];
     const subtotalNum = Number(subtotal || 0);
 
     if (subtotalNum < coupon.min_spend) {
-      return res.status(400).json({
-        error: `Coupon ${coupon.code} requires a minimum purchase of ₹${coupon.min_spend.toLocaleString('en-IN')}`
-      });
+      throw new HttpError(
+        400,
+        `Coupon ${coupon.code} requires a minimum purchase of ₹${coupon.min_spend.toLocaleString('en-IN')}`
+      );
     }
 
     let discountAmount = 0;
@@ -253,9 +252,7 @@ router.post('/coupons/validate', async (req: Request, res: Response) => {
       discountAmount: Math.round(discountAmount),
       message: `Coupon ${coupon.code} applied! Saved ₹${Math.round(discountAmount).toLocaleString('en-IN')}`
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 export default router;
