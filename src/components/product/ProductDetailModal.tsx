@@ -48,6 +48,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewSubmitting, setReviewSubmitting] = useState<boolean>(false);
   const [reviewSuccess, setReviewSuccess] = useState<boolean>(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   if (!isOpen || !product) return null;
 
@@ -80,6 +81,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (!reviewerName || !reviewComment) return;
 
     setReviewSubmitting(true);
+    setReviewError(null);
     try {
       await api.submitProductReview(product.id, {
         userName: reviewerName,
@@ -92,6 +94,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setTimeout(() => setReviewSuccess(false), 4000);
     } catch (err) {
       console.error('Failed to submit review:', err);
+      setReviewError(err instanceof Error ? err.message : 'Your review could not be submitted.');
     } finally {
       setReviewSubmitting(false);
     }
@@ -350,6 +353,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <p className="text-[#C5A059] font-medium text-[11px]">
                                 Thank you! Your review has been recorded.
                               </p>
+                            )}
+                            {reviewError && (
+                              <p className="text-red-700 font-medium text-[11px]">{reviewError}</p>
                             )}
                           </form>
                         </div>

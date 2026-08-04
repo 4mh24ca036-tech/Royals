@@ -37,6 +37,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<'orders' | 'addresses' | 'notifications'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   // Address form
   const [isAddingAddress, setIsAddingAddress] = useState<boolean>(false);
@@ -51,9 +53,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   useEffect(() => {
     if (isOpen && user) {
       setIsLoadingOrders(true);
+      setOrdersError(null);
       api.getUserOrders()
         .then((res) => setOrders(res))
-        .catch((err) => console.error('Failed to load user orders:', err))
+        .catch((err) => {
+          console.error('Failed to load user orders:', err);
+          setOrdersError(err instanceof Error ? err.message : 'Unable to load your orders.');
+        })
         .finally(() => setIsLoadingOrders(false));
     }
   }, [isOpen, user]);
@@ -64,6 +70,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     e.preventDefault();
     if (!newFullName || !newPhone || !newLine1 || !newCity || !newPincode) return;
 
+    setAddressError(null);
     try {
       await addAddress({
         fullName: newFullName,
@@ -82,6 +89,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setNewPincode('');
     } catch (err) {
       console.error('Failed to add address:', err);
+      setAddressError(err instanceof Error ? err.message : 'Unable to save this address.');
     }
   };
 
@@ -171,6 +179,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
+              {ordersError && (
+                <div className="p-3.5 bg-red-50 border border-red-200 text-red-800 text-[11px] font-light">
+                  {ordersError}
+                </div>
+              )}
               {isLoadingOrders ? (
                 <div className="text-center py-12 text-xs text-[#8E8A81] font-light">Loading your royal order dossier...</div>
               ) : orders.length > 0 ? (
@@ -266,6 +279,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               {isAddingAddress && (
                 <form onSubmit={handleSaveAddress} className="p-5 bg-white border border-[#E5E1D8] space-y-4">
                   <h5 className="text-[10px] uppercase tracking-[0.2em] font-cinzel font-medium text-[#1A1A1A]">New Shipping Destination</h5>
+                  {addressError && (
+                    <p className="p-3 bg-red-50 border border-red-200 text-red-800 text-[11px] font-light">{addressError}</p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AdminUser } from '../types';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 interface AdminAuthContextType {
   admin: AdminUser | null;
@@ -8,6 +8,7 @@ interface AdminAuthContextType {
   isLoading: boolean;
   login: (credentials: { username: string; password: string }) => Promise<void>;
   logout: () => void;
+  sessionError: string | null;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -17,12 +18,15 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       const saved = localStorage.getItem('royals_admin_user');
       return saved ? JSON.parse(saved) : null;
-    } catch {
+    } catch (err) {
+      console.warn('Discarding corrupt stored admin session:', err);
+      localStorage.removeItem('royals_admin_user');
       return null;
     }
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('royals_admin_token');
@@ -35,14 +39,21 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Verify admin token by fetching stats
     api.getAdminStats()
       .then(() => {
-        setIsLoading(false);
+        setSessionError(null);
       })
-      .catch(() => {
-        localStorage.removeItem('royals_admin_token');
-        localStorage.removeItem('royals_admin_user');
-        setAdmin(null);
-        setIsLoading(false);
-      });
+      .catch((err) => {
+        const isRejectedSession = err instanceof ApiError && (err.status === 401 || err.status === 403);
+        if (isRejectedSession) {
+          localStorage.removeItem('royals_admin_token');
+          localStorage.removeItem('royals_admin_user');
+          setAdmin(null);
+          return;
+        }
+        // A server or network failure must not masquerade as an expired admin session
+        console.error('Admin session verification failed:', err);
+        setSessionError(err instanceof Error ? err.message : 'Unable to verify the admin session.');
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = async (credentials: { username: string; password: string }) => {
@@ -65,7 +76,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isAdminAuthenticated: !!admin,
         isLoading,
         login,
-        logout
+        logout,
+        sessionError
       }}
     >
       {children}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Address, Notification } from '../types';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +16,7 @@ interface AuthContextType {
   addAddress: (addressData: any) => Promise<void>;
   deleteAddress: (id: string) => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
+  profileError: string | null;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   authModalMode: 'login' | 'register';
@@ -31,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const refreshProfile = async () => {
     const token = localStorage.getItem('royals_user_token');
@@ -47,10 +49,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(data.user);
       setAddresses(data.addresses);
       setNotifications(data.notifications);
+      setProfileError(null);
     } catch (err) {
       console.error('Failed to load profile:', err);
-      localStorage.removeItem('royals_user_token');
-      setUser(null);
+      const isRejectedSession = err instanceof ApiError && (err.status === 401 || err.status === 403 || err.status === 404);
+      if (isRejectedSession) {
+        localStorage.removeItem('royals_user_token');
+        setUser(null);
+        setProfileError(null);
+      } else {
+        // Keep the session for transient failures instead of silently signing the patron out
+        setProfileError(err instanceof Error ? err.message : 'Unable to refresh your profile.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -118,6 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addAddress,
         deleteAddress,
         markNotificationAsRead,
+        profileError,
         isAuthModalOpen,
         setIsAuthModalOpen,
         authModalMode,

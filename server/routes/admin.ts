@@ -2,21 +2,10 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
 import { generateAdminToken, authenticateAdmin } from '../auth.js';
+import { queryAll, parseJsonColumn } from '../dbUtils.js';
+import { asyncHandler, HttpError } from '../errors.js';
 
 const router = Router();
-
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
 
 function formatDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
@@ -36,13 +25,14 @@ function formatTime(date: Date): string {
 }
 
 // ADMIN LOGIN
-router.post('/login', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/login',
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and Password are required' });
+      throw new HttpError(400, 'Username and Password are required');
     }
 
     const admins = queryAll(
@@ -75,14 +65,15 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     if (!admin) {
-      return res.status(401).json({ error: 'Invalid admin credentials' });
+      throw new HttpError(401, 'Invalid admin credentials');
     }
 
     let passwordMatch = false;
     try {
       passwordMatch = bcrypt.compareSync(password, admin.password_hash);
-    } catch {
-      passwordMatch = false;
+    } catch (err) {
+      // A malformed stored hash is an operational problem, not a wrong password
+      console.error(`[ROYALS] Unreadable password hash for admin ${admin.id}:`, err);
     }
 
     // Direct match check for temporary credentials
@@ -95,7 +86,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid admin credentials. Check username and password.' });
+      throw new HttpError(401, 'Invalid admin credentials. Check username and password.');
     }
 
     const now = new Date().toISOString();
@@ -121,14 +112,14 @@ router.post('/login', async (req: Request, res: Response) => {
         last_login: now
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET ADMIN DASHBOARD STATS
-router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/stats',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
 
     const orders = queryAll(db, 'SELECT * FROM orders ORDER BY created_at DESC');
@@ -167,7 +158,7 @@ router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
       return {
         ...ord,
         items,
-        shipping_address: JSON.parse(ord.shipping_address_json)
+        shipping_address: parseJsonColumn(ord.shipping_address_json, 'orders.shipping_address_json', ord.id)
       };
     });
 
@@ -183,14 +174,14 @@ router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
       statusCounts,
       recentOrders
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET ALL ORDERS FOR ADMIN
-router.get('/orders', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/orders',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { status, search } = req.query;
 
@@ -226,7 +217,7 @@ router.get('/orders', authenticateAdmin, async (req: Request, res: Response) => 
       const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [ord.id]);
       return {
         ...ord,
-        shipping_address: JSON.parse(ord.shipping_address_json),
+        shipping_address: parseJsonColumn(ord.shipping_address_json, 'orders.shipping_address_json', ord.id),
         items,
         payment: payments[0] || null,
         status_history: history
@@ -234,14 +225,14 @@ router.get('/orders', authenticateAdmin, async (req: Request, res: Response) => 
     });
 
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // UPDATE ORDER STATUS (Stores exact server date & time, never overwrites history, updates timeline & creates customer in-app notification)
-router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Response) => {
-  try {
+router.patch(
+  '/orders/:id/status',
+  authenticateAdmin,
+  asyncHandler(async (req: any, res: Response) => {
     const db = await getDb();
     const { id } = req.params;
     let { status, notes, courierName, trackingId, estimatedDeliveryDate } = req.body;
@@ -262,12 +253,12 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     ];
 
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+      throw new HttpError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }
 
     const orderRows = queryAll(db, 'SELECT * FROM orders WHERE id = ? OR order_number = ? LIMIT 1', [id, id]);
     if (orderRows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      throw new HttpError(404, 'Order not found');
     }
 
     const order = orderRows[0];
@@ -377,31 +368,30 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
       },
       order: {
         ...updatedOrder,
-        shipping_address: JSON.parse(updatedOrder.shipping_address_json),
+        shipping_address: parseJsonColumn(updatedOrder.shipping_address_json, 'orders.shipping_address_json', updatedOrder.id),
         items,
         status_history: history
       }
     });
-  } catch (err: any) {
-    console.error('Error updating order status:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // UPDATE ESTIMATED DELIVERY DATE (Customer immediately sees new date & receives notification)
-router.patch('/orders/:id/delivery-date', authenticateAdmin, async (req: any, res: Response) => {
-  try {
+router.patch(
+  '/orders/:id/delivery-date',
+  authenticateAdmin,
+  asyncHandler(async (req: any, res: Response) => {
     const db = await getDb();
     const { id } = req.params;
     const { estimatedDeliveryDate, notes } = req.body;
 
     if (!estimatedDeliveryDate) {
-      return res.status(400).json({ error: 'Estimated delivery date is required' });
+      throw new HttpError(400, 'Estimated delivery date is required');
     }
 
     const orderRows = queryAll(db, 'SELECT * FROM orders WHERE id = ? OR order_number = ? LIMIT 1', [id, id]);
     if (orderRows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      throw new HttpError(404, 'Order not found');
     }
 
     const order = orderRows[0];
@@ -453,19 +443,19 @@ router.patch('/orders/:id/delivery-date', authenticateAdmin, async (req: any, re
       message: `Estimated delivery date updated to ${estimatedDeliveryDate}`,
       order: {
         ...updatedOrder,
-        shipping_address: JSON.parse(updatedOrder.shipping_address_json),
+        shipping_address: parseJsonColumn(updatedOrder.shipping_address_json, 'orders.shipping_address_json', updatedOrder.id),
         items,
         status_history: history
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET ANALYTICS
-router.get('/analytics', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/analytics',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const orders = queryAll(db, 'SELECT * FROM orders ORDER BY created_at ASC');
     const products = queryAll(db, 'SELECT * FROM products');
@@ -535,14 +525,14 @@ router.get('/analytics', authenticateAdmin, async (req: Request, res: Response) 
       statusCounts,
       totalCatalogProducts: products.length
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // PRODUCT MANAGEMENT: Add new product
-router.post('/products', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/products',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const {
       title,
@@ -563,7 +553,7 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
     } = req.body;
 
     if (!title || !category_id || !price) {
-      return res.status(400).json({ error: 'Title, category, and price are required' });
+      throw new HttpError(400, 'Title, category, and price are required');
     }
 
     const id = `prod_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -613,14 +603,14 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
     persistDb();
 
     res.status(201).json({ id, slug, message: 'Product created successfully' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // UPDATE PRODUCT
-router.put('/products/:id', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.put(
+  '/products/:id',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { id } = req.params;
     const {
@@ -640,6 +630,11 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
       is_featured,
       is_new_arrival
     } = req.body;
+
+    const existing = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id]);
+    if (existing.length === 0) {
+      throw new HttpError(404, 'Product not found');
+    }
 
     db.run(
       `UPDATE products SET
@@ -681,30 +676,35 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
 
     persistDb();
     res.json({ message: 'Product updated successfully' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // DELETE PRODUCT
-router.delete('/products/:id', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.delete(
+  '/products/:id',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { id } = req.params;
+
+    const existing = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id]);
+    if (existing.length === 0) {
+      throw new HttpError(404, 'Product not found');
+    }
 
     db.run('DELETE FROM products WHERE id = ?', [id]);
     db.run('DELETE FROM inventory WHERE product_id = ?', [id]);
     persistDb();
 
     res.json({ message: 'Product removed from catalog' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET CUSTOMERS
-router.get('/customers', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/customers',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const users = queryAll(db, 'SELECT id, name, email, phone, role, created_at, updated_at FROM users');
 
@@ -719,30 +719,35 @@ router.get('/customers', authenticateAdmin, async (req: Request, res: Response) 
     });
 
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET COUPONS
-router.get('/coupons', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/coupons',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const coupons = queryAll(db, 'SELECT * FROM coupons ORDER BY usage_count DESC');
     res.json(coupons);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // CREATE COUPON
-router.post('/coupons', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/coupons',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { code, discount_type, discount_value, min_spend, max_discount, expiry_date } = req.body;
 
     if (!code || !discount_type || !discount_value) {
-      return res.status(400).json({ error: 'Code, discount type, and discount value are required' });
+      throw new HttpError(400, 'Code, discount type, and discount value are required');
+    }
+
+    const duplicate = queryAll(db, 'SELECT id FROM coupons WHERE code = ? LIMIT 1', [code.toUpperCase()]);
+    if (duplicate.length > 0) {
+      throw new HttpError(409, `Coupon ${code.toUpperCase()} already exists`);
     }
 
     const id = `coup_${Date.now()}`;
@@ -754,29 +759,34 @@ router.post('/coupons', authenticateAdmin, async (req: Request, res: Response) =
 
     persistDb();
     res.status(201).json({ id, message: 'Coupon created successfully' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // TOGGLE COUPON
-router.patch('/coupons/:id/toggle', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.patch(
+  '/coupons/:id/toggle',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { id } = req.params;
+
+    const existing = queryAll(db, 'SELECT id FROM coupons WHERE id = ? LIMIT 1', [id]);
+    if (existing.length === 0) {
+      throw new HttpError(404, 'Coupon not found');
+    }
 
     db.run('UPDATE coupons SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?', [id]);
     persistDb();
 
     res.json({ message: 'Coupon status toggled' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // INVENTORY
-router.get('/inventory', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/inventory',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const inventory = queryAll(db, `
       SELECT i.*, p.title as product_title, p.category_name, p.price, p.images_json
@@ -787,38 +797,39 @@ router.get('/inventory', authenticateAdmin, async (req: Request, res: Response) 
 
     const formatted = inventory.map((inv: any) => ({
       ...inv,
-      images: JSON.parse(inv.images_json || '[]')
+      images: parseJsonColumn<string[]>(inv.images_json, 'products.images_json', inv.product_id, [])
     }));
 
     res.json(formatted);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // RESTOCK INVENTORY
-router.patch('/inventory/:id/restock', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
+router.patch(
+  '/inventory/:id/restock',
+  authenticateAdmin,
+  asyncHandler(async (req: Request, res: Response) => {
     const db = await getDb();
     const { id } = req.params;
     const { quantity } = req.body;
 
-    const qty = Number(quantity || 10);
-    const now = new Date().toISOString();
-
-    db.run('UPDATE inventory SET stock_quantity = stock_quantity + ?, last_restocked_at = ? WHERE id = ?', [qty, now, id]);
-
-    // Also update main product stock
-    const inv = queryAll(db, 'SELECT product_id FROM inventory WHERE id = ?', [id])[0];
-    if (inv) {
-      db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [qty, inv.product_id]);
+    const qty = Number(quantity ?? 10);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      throw new HttpError(400, 'Restock quantity must be a positive number');
     }
+
+    const inv = queryAll(db, 'SELECT product_id FROM inventory WHERE id = ?', [id])[0];
+    if (!inv) {
+      throw new HttpError(404, 'Inventory item not found');
+    }
+
+    const now = new Date().toISOString();
+    db.run('UPDATE inventory SET stock_quantity = stock_quantity + ?, last_restocked_at = ? WHERE id = ?', [qty, now, id]);
+    db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [qty, inv.product_id]);
 
     persistDb();
     res.json({ message: `Restocked by +${qty} units successfully` });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 export default router;

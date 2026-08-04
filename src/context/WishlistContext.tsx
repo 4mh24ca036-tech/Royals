@@ -18,7 +18,9 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const saved = localStorage.getItem('royals_wishlist');
       return saved ? JSON.parse(saved) : [];
-    } catch {
+    } catch (err) {
+      console.warn('Discarding corrupt stored wishlist:', err);
+      localStorage.removeItem('royals_wishlist');
       return [];
     }
   });

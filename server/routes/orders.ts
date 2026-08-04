@@ -1,21 +1,10 @@
 import { Router, Request } from 'express';
 import { getDb, persistDb } from '../db.js';
 import { authenticateUser, UserJwtPayload } from '../auth.js';
+import { queryAll, parseJsonColumn } from '../dbUtils.js';
+import { asyncHandler, HttpError } from '../errors.js';
 
 const router = Router();
-
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
 
 function formatDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
@@ -35,8 +24,9 @@ function formatTime(date: Date): string {
 }
 
 // CREATE NEW ORDER (Checkout)
-router.post('/', async (req, res) => {
-  try {
+router.post(
+  '/',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const {
       customerName,
@@ -50,13 +40,17 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     if (!customerName || !customerEmail || !customerPhone || !shippingAddress || !items || items.length === 0) {
-      return res.status(400).json({ error: 'Missing required order details' });
+      throw new HttpError(400, 'Missing required order details');
     }
 
     // Calculate subtotal
     let subtotal = 0;
     for (const it of items) {
-      subtotal += Number(it.price) * Number(it.quantity);
+      const lineTotal = Number(it.price) * Number(it.quantity);
+      if (!Number.isFinite(lineTotal) || lineTotal < 0) {
+        throw new HttpError(400, `Invalid price or quantity for item "${it.title ?? it.productId}"`);
+      }
+      subtotal += lineTotal;
     }
 
     // Coupon calculation
@@ -164,7 +158,7 @@ router.post('/', async (req, res) => {
     // Insert Payment Record
     const paymentId = `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const txnId = `TXN-RYL-${Date.now().toString().slice(-7)}`;
-    const gatewayRef = `PG-${paymentMethod.toUpperCase().slice(0, 3)}-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const gatewayRef = `PG-${String(paymentMethod || 'UPI').toUpperCase().slice(0, 3)}-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     db.run(
       `INSERT INTO payments (id, order_id, payment_method, transaction_id, gateway_ref, amount, status, paid_at)
@@ -273,7 +267,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({
       order: {
         ...createdOrder,
-        shipping_address: JSON.parse(createdOrder.shipping_address_json),
+        shipping_address: parseJsonColumn(createdOrder.shipping_address_json, 'orders.shipping_address_json', orderId),
         items: orderItems,
         payment,
         status_history: statusHistory
@@ -287,21 +281,19 @@ router.post('/', async (req, res) => {
         paymentMethod
       }
     });
-  } catch (err: any) {
-    console.error('Error creating order:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET order details by Order ID or Order Number
-router.get('/:idOrNumber', async (req, res) => {
-  try {
+router.get(
+  '/:idOrNumber',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const { idOrNumber } = req.params;
 
     const orders = queryAll(db, 'SELECT * FROM orders WHERE id = ? OR order_number = ? LIMIT 1', [idOrNumber, idOrNumber]);
     if (orders.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      throw new HttpError(404, 'Order not found');
     }
 
     const order = orders[0];
@@ -311,19 +303,18 @@ router.get('/:idOrNumber', async (req, res) => {
 
     res.json({
       ...order,
-      shipping_address: JSON.parse(order.shipping_address_json),
+      shipping_address: parseJsonColumn(order.shipping_address_json, 'orders.shipping_address_json', order.id),
       items,
       payment: payments[0] || null,
       status_history: history
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET tracking information with complete 8-stage timeline directly from database
-router.get('/track/:query', async (req, res) => {
-  try {
+router.get(
+  '/track/:query',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const { query } = req.params;
 
@@ -335,7 +326,7 @@ router.get('/track/:query', async (req, res) => {
     );
 
     if (orders.length === 0) {
-      return res.status(404).json({ error: 'No order found matching tracking reference or order number.' });
+      throw new HttpError(404, 'No order found matching tracking reference or order number.');
     }
 
     const order = orders[0];
@@ -420,21 +411,21 @@ router.get('/track/:query', async (req, res) => {
       estimatedDelivery: order.estimated_delivery_date,
       orderDate: formatDate(new Date(order.created_at)),
       customerName: order.customer_name,
-      shippingAddress: JSON.parse(order.shipping_address_json),
+      shippingAddress: parseJsonColumn(order.shipping_address_json, 'orders.shipping_address_json', order.id),
       items,
       grandTotal: order.grand_total,
       timeline,
       rawHistory: history,
       supportWhatsAppUrl: `https://wa.me/918000461784?text=${encodeURIComponent(`Hello ROYALS, I have a question regarding Order #${order.order_number}.`)}`
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET User Orders
-router.get('/user/my-orders', authenticateUser, async (req: any, res) => {
-  try {
+router.get(
+  '/user/my-orders',
+  authenticateUser,
+  asyncHandler(async (req: any, res) => {
     const db = await getDb();
     const userId = req.user.id;
 
@@ -445,16 +436,14 @@ router.get('/user/my-orders', authenticateUser, async (req: any, res) => {
       const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [ord.id]);
       return {
         ...ord,
-        shipping_address: JSON.parse(ord.shipping_address_json),
+        shipping_address: parseJsonColumn(ord.shipping_address_json, 'orders.shipping_address_json', ord.id),
         items,
         status_history: history
       };
     });
 
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 export default router;

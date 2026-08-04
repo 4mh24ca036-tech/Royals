@@ -69,7 +69,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   categories,
   onProductUpdated
 }) => {
-  const { admin, isAdminAuthenticated, login, logout } = useAdminAuth();
+  const { admin, isAdminAuthenticated, login, logout, sessionError } = useAdminAuth();
 
   // Login form states
   const [username, setUsername] = useState('admin');
@@ -92,6 +92,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentTime, setCurrentTime] = useState<string>('');
 
@@ -172,8 +173,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.5);
-    } catch {
-      // Audio not permitted or not supported
+    } catch (err) {
+      console.warn('Order chime could not be played:', err);
     }
   };
 
@@ -223,8 +224,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           setSelectedOrder(updated);
         }
       }
+
+      setDataError(null);
     } catch (err) {
       console.error('Failed to load admin operations data:', err);
+      // Polling refreshes fail silently otherwise, leaving stale figures on screen
+      setDataError(
+        err instanceof Error
+          ? `Live operations data could not be refreshed: ${err.message}`
+          : 'Live operations data could not be refreshed.'
+      );
     } finally {
       if (!silent) setIsLoadingData(false);
       setIsRefreshing(false);
@@ -397,8 +406,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     try {
       await api.toggleAdminCoupon(id);
       await loadAdminData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle coupon status');
     }
   };
 
@@ -585,6 +594,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
+                {sessionError && !loginError && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                    <span>{sessionError}</span>
+                  </div>
+                )}
                 {loginError && (
                   <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
@@ -754,6 +769,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
             {/* Panel Body */}
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+
+              {dataError && (
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-300 text-red-900 text-xs flex items-center justify-between gap-3">
+                  <span>{dataError}</span>
+                  <button
+                    onClick={() => {
+                      setIsRefreshing(true);
+                      loadAdminData();
+                    }}
+                    className="font-bold uppercase tracking-wider underline cursor-pointer shrink-0"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
               
               {/* ==================================================== */}
               {/* SECTION 1: DASHBOARD                                 */}

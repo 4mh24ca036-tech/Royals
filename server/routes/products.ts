@@ -1,36 +1,24 @@
 import { Router } from 'express';
 import { getDb, persistDb } from '../db.js';
+import { queryAll, parseJsonColumn } from '../dbUtils.js';
+import { asyncHandler, HttpError } from '../errors.js';
 
 const router = Router();
 
-// Helper to convert db results to objects
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
-
 // GET all categories
-router.get('/categories', async (req, res) => {
-  try {
+router.get(
+  '/categories',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const categories = queryAll(db, 'SELECT * FROM categories ORDER BY display_order ASC');
     res.json(categories);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET all products with filtering, search, sorting
-router.get('/', async (req, res) => {
-  try {
+router.get(
+  '/',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const { category, search, minPrice, maxPrice, fabric, color, sort, featured, newArrival } = req.query;
 
@@ -101,28 +89,27 @@ router.get('/', async (req, res) => {
 
     const formatted = rows.map((r: any) => ({
       ...r,
-      sizes: JSON.parse(r.sizes_json || '[]'),
-      images: JSON.parse(r.images_json || '[]'),
+      sizes: parseJsonColumn<string[]>(r.sizes_json, 'products.sizes_json', r.id, []),
+      images: parseJsonColumn<string[]>(r.images_json, 'products.images_json', r.id, []),
       is_featured: Boolean(r.is_featured),
       is_new_arrival: Boolean(r.is_new_arrival)
     }));
 
     res.json(formatted);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // GET single product by ID or Slug
-router.get('/:idOrSlug', async (req, res) => {
-  try {
+router.get(
+  '/:idOrSlug',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const { idOrSlug } = req.params;
 
     const rows = queryAll(db, 'SELECT * FROM products WHERE id = ? OR slug = ? LIMIT 1', [idOrSlug, idOrSlug]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
+      throw new HttpError(404, 'Product not found');
     }
 
     const prod = rows[0];
@@ -131,8 +118,8 @@ router.get('/:idOrSlug', async (req, res) => {
 
     const formatted = {
       ...prod,
-      sizes: JSON.parse(prod.sizes_json || '[]'),
-      images: JSON.parse(prod.images_json || '[]'),
+      sizes: parseJsonColumn<string[]>(prod.sizes_json, 'products.sizes_json', prod.id, []),
+      images: parseJsonColumn<string[]>(prod.images_json, 'products.images_json', prod.id, []),
       is_featured: Boolean(prod.is_featured),
       is_new_arrival: Boolean(prod.is_new_arrival),
       reviews,
@@ -140,20 +127,24 @@ router.get('/:idOrSlug', async (req, res) => {
     };
 
     res.json(formatted);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 // POST a review for a product
-router.post('/:id/reviews', async (req, res) => {
-  try {
+router.post(
+  '/:id/reviews',
+  asyncHandler(async (req, res) => {
     const db = await getDb();
     const { id } = req.params;
     const { userName, rating, comment } = req.body;
 
     if (!userName || !rating || !comment) {
-      return res.status(400).json({ error: 'Missing required review fields' });
+      throw new HttpError(400, 'Missing required review fields');
+    }
+
+    const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id]);
+    if (product.length === 0) {
+      throw new HttpError(404, 'Product not found');
     }
 
     const reviewId = `rev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -182,9 +173,7 @@ router.post('/:id/reviews', async (req, res) => {
       verified_purchase: 1,
       created_at: createdAt
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  })
+);
 
 export default router;
