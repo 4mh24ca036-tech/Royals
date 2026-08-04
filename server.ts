@@ -6,14 +6,18 @@ import productsRouter from './server/routes/products.js';
 import ordersRouter from './server/routes/orders.js';
 import adminRouter from './server/routes/admin.js';
 import authRouter from './server/routes/auth.js';
+import { securityHeaders } from './server/security.js';
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Body parser
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
+
+  // Body parser with a bounded payload size
+  app.use(express.json({ limit: '100kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
   // Initialize and verify database on boot
   try {

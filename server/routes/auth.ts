@@ -2,8 +2,24 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
 import { generateUserToken, authenticateUser } from '../auth.js';
+import { isValidEmail, isValidPhone, isValidPincode, rateLimit, sanitizeText, serverError } from '../security.js';
 
 const router = Router();
+
+const credentialsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many authentication attempts. Please try again in a few minutes.'
+});
+
+const couponLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: 'Too many coupon attempts. Please try again in a few minutes.'
+});
+
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
 
 function queryAll(db: any, sql: string, params: any[] = []) {
   const stmt = db.prepare(sql);
@@ -19,16 +35,29 @@ function queryAll(db: any, sql: string, params: any[] = []) {
 }
 
 // CUSTOMER REGISTER
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', credentialsLimiter, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const { name, email, phone, password } = req.body;
+    const name = sanitizeText(req.body?.name, 100);
+    const email = isValidEmail(req.body?.email) ? req.body.email.trim().toLowerCase() : null;
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const phone = req.body?.phone === undefined || req.body?.phone === null || req.body?.phone === ''
+      ? null
+      : isValidPhone(req.body.phone) ? String(req.body.phone).trim() : undefined;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
+      return res.status(400).json({ error: 'A valid name, email address, and password are required' });
     }
 
-    const existing = queryAll(db, 'SELECT id FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
+    if (phone === undefined) {
+      return res.status(400).json({ error: 'Phone number format is invalid' });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters` });
+    }
+
+    const existing = queryAll(db, 'SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
     if (existing.length > 0) {
       return res.status(400).json({ error: 'An account with this email address already exists' });
     }
@@ -41,7 +70,7 @@ router.post('/register', async (req: Request, res: Response) => {
     db.run(
       `INSERT INTO users (id, name, email, phone, password_hash, role, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 'customer', ?, ?);`,
-      [id, name, email.toLowerCase(), phone || '8000461784', passwordHash, now, now]
+      [id, name, email, phone, passwordHash, now, now]
     );
 
     // Initial welcome notification
@@ -60,34 +89,35 @@ router.post('/register', async (req: Request, res: Response) => {
 
     persistDb();
 
-    const token = generateUserToken({ id, email: email.toLowerCase(), name, role: 'customer' });
+    const token = generateUserToken({ id, email, name, role: 'customer' });
 
     res.status(201).json({
       token,
       user: {
         id,
         name,
-        email: email.toLowerCase(),
-        phone: phone || '8000461784',
+        email,
+        phone,
         role: 'customer'
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 
 // CUSTOMER LOGIN
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', credentialsLimiter, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const { email, password } = req.body;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : null;
+    const password = typeof req.body?.password === 'string' ? req.body.password : null;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const users = queryAll(db, 'SELECT * FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
+    const users = queryAll(db, 'SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
     if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -116,7 +146,7 @@ router.post('/login', async (req: Request, res: Response) => {
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 
@@ -141,7 +171,7 @@ router.get('/me', authenticateUser, async (req: any, res: Response) => {
       notifications
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 
@@ -150,11 +180,20 @@ router.post('/addresses', authenticateUser, async (req: any, res: Response) => {
   try {
     const db = await getDb();
     const userId = req.user.id;
-    const { fullName, phone, addressLine1, addressLine2, landmark, city, state, pincode, isDefault } = req.body;
+    const { addressLine2, landmark, isDefault } = req.body;
+    const fullName = sanitizeText(req.body?.fullName, 100);
+    const addressLine1 = sanitizeText(req.body?.addressLine1, 200);
+    const city = sanitizeText(req.body?.city, 100);
+    const state = sanitizeText(req.body?.state, 100);
+    const phone = isValidPhone(req.body?.phone) ? String(req.body.phone).trim() : null;
+    const pincode = isValidPincode(req.body?.pincode) ? String(req.body.pincode).trim() : null;
 
     if (!fullName || !phone || !addressLine1 || !city || !state || !pincode) {
-      return res.status(400).json({ error: 'Missing required address fields' });
+      return res.status(400).json({ error: 'Missing or invalid required address fields' });
     }
+
+    const line2 = addressLine2 ? sanitizeText(addressLine2, 200) : null;
+    const landmarkText = landmark ? sanitizeText(landmark, 200) : null;
 
     const id = `addr_${Date.now()}`;
     const now = new Date().toISOString();
@@ -166,7 +205,7 @@ router.post('/addresses', authenticateUser, async (req: any, res: Response) => {
     db.run(
       `INSERT INTO addresses (id, user_id, full_name, phone, address_line1, address_line2, landmark, city, state, pincode, is_default, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      [id, userId, fullName, phone, addressLine1, addressLine2 || null, landmark || null, city, state, pincode, isDefault ? 1 : 0, now]
+      [id, userId, fullName, phone, addressLine1, line2, landmarkText, city, state, pincode, isDefault ? 1 : 0, now]
     );
 
     persistDb();
@@ -174,7 +213,7 @@ router.post('/addresses', authenticateUser, async (req: any, res: Response) => {
     const addresses = queryAll(db, 'SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, created_at DESC', [userId]);
     res.status(201).json(addresses);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 
@@ -191,7 +230,7 @@ router.delete('/addresses/:id', authenticateUser, async (req: any, res: Response
     const addresses = queryAll(db, 'SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, created_at DESC', [userId]);
     res.json(addresses);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 
@@ -207,27 +246,32 @@ router.patch('/notifications/:id/read', authenticateUser, async (req: any, res: 
 
     res.json({ message: 'Notification marked as read' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 
 // VALIDATE COUPON
-router.post('/coupons/validate', async (req: Request, res: Response) => {
+router.post('/coupons/validate', couponLimiter, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const { code, subtotal } = req.body;
+    const code = sanitizeText(req.body?.code, 40);
+    const subtotal = req.body?.subtotal;
 
     if (!code) {
       return res.status(400).json({ error: 'Coupon code is required' });
     }
 
-    const coupons = queryAll(db, 'SELECT * FROM coupons WHERE code = ? AND is_active = 1 LIMIT 1', [code.toUpperCase().trim()]);
+    const coupons = queryAll(db, 'SELECT * FROM coupons WHERE code = ? AND is_active = 1 LIMIT 1', [code.toUpperCase()]);
     if (coupons.length === 0) {
       return res.status(400).json({ error: 'Invalid or expired coupon code' });
     }
 
     const coupon = coupons[0];
-    const subtotalNum = Number(subtotal || 0);
+    if (coupon.expiry_date && new Date(coupon.expiry_date).getTime() < Date.now()) {
+      return res.status(400).json({ error: 'Invalid or expired coupon code' });
+    }
+
+    const subtotalNum = Number.isFinite(Number(subtotal)) ? Math.max(0, Number(subtotal)) : 0;
 
     if (subtotalNum < coupon.min_spend) {
       return res.status(400).json({
@@ -254,7 +298,7 @@ router.post('/coupons/validate', async (req: Request, res: Response) => {
       message: `Coupon ${coupon.code} applied! Saved ₹${Math.round(discountAmount).toLocaleString('en-IN')}`
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'auth route', err);
   }
 });
 

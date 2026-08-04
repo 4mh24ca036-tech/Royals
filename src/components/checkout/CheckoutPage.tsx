@@ -100,8 +100,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           unitPrice: it.price
         })),
         paymentMethod: paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : `Online - ${paymentMethod}`,
-        couponCode: appliedCoupon,
-        userId: user?.id
+        couponCode: appliedCoupon
       };
 
       const response = await api.createOrder(orderPayload);

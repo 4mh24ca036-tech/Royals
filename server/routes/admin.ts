@@ -2,8 +2,15 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
 import { generateAdminToken, authenticateAdmin } from '../auth.js';
+import { rateLimit, sanitizeText, serverError } from '../security.js';
 
 const router = Router();
+
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many admin login attempts. Please try again in a few minutes.'
+});
 
 function queryAll(db: any, sql: string, params: any[] = []) {
   const stmt = db.prepare(sql);
@@ -36,10 +43,11 @@ function formatTime(date: Date): string {
 }
 
 // ADMIN LOGIN
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', adminLoginLimiter, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
-    const { username, password } = req.body;
+    const username = sanitizeText(req.body?.username, 254);
+    const password = typeof req.body?.password === 'string' ? req.body.password : null;
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and Password are required' });
@@ -51,51 +59,19 @@ router.post('/login', async (req: Request, res: Response) => {
       [username, username]
     );
 
-    let admin = admins.length > 0 ? admins[0] : null;
-
-    // Fallback: If no admin in DB, create default admin user
-    if (!admin && username === 'admin') {
-      const salt = bcrypt.genSaltSync(10);
-      const hash = bcrypt.hashSync('Royals@2026', salt);
-      const now = new Date().toISOString();
-      db.run(
-        `INSERT INTO admin_users (id, username, email, name, password_hash, role, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        ['adm_1', 'admin', 'admin@royals.com', 'Atelier Director', hash, 'super_admin', now]
-      );
-      persistDb();
-      admin = {
-        id: 'adm_1',
-        username: 'admin',
-        email: 'admin@royals.com',
-        name: 'Atelier Director',
-        password_hash: hash,
-        role: 'super_admin'
-      };
-    }
-
-    if (!admin) {
-      return res.status(401).json({ error: 'Invalid admin credentials' });
-    }
+    const admin = admins.length > 0 ? admins[0] : null;
 
     let passwordMatch = false;
-    try {
-      passwordMatch = bcrypt.compareSync(password, admin.password_hash);
-    } catch {
-      passwordMatch = false;
+    if (admin) {
+      try {
+        passwordMatch = bcrypt.compareSync(password, admin.password_hash);
+      } catch {
+        passwordMatch = false;
+      }
     }
 
-    // Direct match check for temporary credentials
-    if (!passwordMatch && (password === 'Royals@2026' || password === 'RoyalsAdmin@2026')) {
-      passwordMatch = true;
-      // Re-hash to standard
-      const salt = bcrypt.genSaltSync(10);
-      const newHash = bcrypt.hashSync('Royals@2026', salt);
-      db.run('UPDATE admin_users SET password_hash = ? WHERE id = ?', [newHash, admin.id]);
-    }
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid admin credentials. Check username and password.' });
+    if (!admin || !passwordMatch) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
     }
 
     const now = new Date().toISOString();
@@ -122,7 +98,7 @@ router.post('/login', async (req: Request, res: Response) => {
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin login', err);
   }
 });
 
@@ -184,7 +160,7 @@ router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
       recentOrders
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -235,7 +211,7 @@ router.get('/orders', authenticateAdmin, async (req: Request, res: Response) => 
 
     res.json(enriched);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -383,8 +359,7 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
       }
     });
   } catch (err: any) {
-    console.error('Error updating order status:', err);
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -459,7 +434,7 @@ router.patch('/orders/:id/delivery-date', authenticateAdmin, async (req: any, re
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -536,7 +511,7 @@ router.get('/analytics', authenticateAdmin, async (req: Request, res: Response) 
       totalCatalogProducts: products.length
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -614,7 +589,7 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
 
     res.status(201).json({ id, slug, message: 'Product created successfully' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -682,7 +657,7 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
     persistDb();
     res.json({ message: 'Product updated successfully' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -698,7 +673,7 @@ router.delete('/products/:id', authenticateAdmin, async (req: Request, res: Resp
 
     res.json({ message: 'Product removed from catalog' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -720,7 +695,7 @@ router.get('/customers', authenticateAdmin, async (req: Request, res: Response) 
 
     res.json(enriched);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -731,7 +706,7 @@ router.get('/coupons', authenticateAdmin, async (req: Request, res: Response) =>
     const coupons = queryAll(db, 'SELECT * FROM coupons ORDER BY usage_count DESC');
     res.json(coupons);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -755,7 +730,7 @@ router.post('/coupons', authenticateAdmin, async (req: Request, res: Response) =
     persistDb();
     res.status(201).json({ id, message: 'Coupon created successfully' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -770,7 +745,7 @@ router.patch('/coupons/:id/toggle', authenticateAdmin, async (req: Request, res:
 
     res.json({ message: 'Coupon status toggled' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -792,7 +767,7 @@ router.get('/inventory', authenticateAdmin, async (req: Request, res: Response) 
 
     res.json(formatted);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 
@@ -817,7 +792,7 @@ router.patch('/inventory/:id/restock', authenticateAdmin, async (req: Request, r
     persistDb();
     res.json({ message: `Restocked by +${qty} units successfully` });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'admin route', err);
   }
 });
 

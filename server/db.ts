@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import initSqlJs, { Database } from 'sql.js';
@@ -247,30 +248,40 @@ function initializeSchema(db: Database) {
   `);
 }
 
-function seedInitialData(db: Database) {
-  const salt = bcrypt.genSaltSync(10);
-  const adminHash = bcrypt.hashSync('Royals@2026', salt);
-  const demoUserHash = bcrypt.hashSync('Customer@123', salt);
+// Returns the configured seed password, or a freshly generated one that is printed once
+// so a local environment stays usable without shipping a known credential.
+function resolveSeedPassword(envVar: string, label: string): string {
+  const configured = process.env[envVar];
+  if (configured && configured.length >= 8) {
+    return configured;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`${envVar} must be set (at least 8 characters) to seed the ${label} account`);
+  }
+  const generated = crypto.randomBytes(12).toString('base64url');
+  console.warn(`Generated one-time ${label} password (set ${envVar} to choose your own): ${generated}`);
+  return generated;
+}
 
+function seedInitialData(db: Database) {
   // Check if admin user exists
   const adminRes = db.exec(`SELECT COUNT(*) as count FROM admin_users;`);
   const adminCount = adminRes.length > 0 && adminRes[0].values.length > 0 ? (adminRes[0].values[0][0] as number) : 0;
 
   if (adminCount === 0) {
+    const adminHash = bcrypt.hashSync(resolveSeedPassword('ADMIN_INITIAL_PASSWORD', 'admin'), bcrypt.genSaltSync(10));
     db.run(
       `INSERT INTO admin_users (id, username, email, name, password_hash, role, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?);`,
-      ['adm_1', 'admin', 'admin@royals.com', 'Atelier Director', adminHash, 'super_admin', new Date().toISOString()]
+      ['adm_1', 'admin', process.env.ADMIN_EMAIL || 'admin@royals.com', 'Atelier Director', adminHash, 'super_admin', new Date().toISOString()]
     );
-  } else {
-    // Ensure admin user password hash matches Royals@2026
-    db.run(`UPDATE admin_users SET password_hash = ? WHERE username = 'admin';`, [adminHash]);
   }
 
   const userRes = db.exec(`SELECT COUNT(*) as count FROM users;`);
   const userCount = userRes.length > 0 && userRes[0].values.length > 0 ? (userRes[0].values[0][0] as number) : 0;
 
   if (userCount === 0) {
+    const demoUserHash = bcrypt.hashSync(resolveSeedPassword('DEMO_USER_PASSWORD', 'demo customer'), bcrypt.genSaltSync(10));
     db.run(
       `INSERT INTO users (id, name, email, phone, password_hash, role, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
