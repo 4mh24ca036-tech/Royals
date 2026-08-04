@@ -114,7 +114,6 @@ export const api = {
     items: any[];
     paymentMethod: string;
     couponCode?: string | null;
-    userId?: string;
   }) =>
     request<{ order: Order; invoiceNumber: string; paymentReceipt: any }>('/orders', {
       method: 'POST',

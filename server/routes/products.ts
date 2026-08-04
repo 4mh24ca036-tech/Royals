@@ -1,7 +1,15 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { getDb, persistDb } from '../db.js';
+import { optionalAuthenticateUser, UserJwtPayload } from '../auth.js';
+import { rateLimit, sanitizeText, serverError } from '../security.js';
 
 const router = Router();
+
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: 'Too many reviews submitted. Please try again later.'
+});
 
 // Helper to convert db results to objects
 function queryAll(db: any, sql: string, params: any[] = []) {
@@ -24,7 +32,7 @@ router.get('/categories', async (req, res) => {
     const categories = queryAll(db, 'SELECT * FROM categories ORDER BY display_order ASC');
     res.json(categories);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'products route', err);
   }
 });
 
@@ -109,7 +117,7 @@ router.get('/', async (req, res) => {
 
     res.json(formatted);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'products route', err);
   }
 });
 
@@ -141,20 +149,43 @@ router.get('/:idOrSlug', async (req, res) => {
 
     res.json(formatted);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'products route', err);
   }
 });
 
 // POST a review for a product
-router.post('/:id/reviews', async (req, res) => {
+router.post('/:id/reviews', reviewLimiter, optionalAuthenticateUser, async (req: Request & { user?: UserJwtPayload }, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
-    const { userName, rating, comment } = req.body;
+    const userName = req.user?.name || sanitizeText(req.body?.userName, 60);
+    const comment = sanitizeText(req.body?.comment, 2000);
+    const rating = Number(req.body?.rating);
 
-    if (!userName || !rating || !comment) {
+    if (!userName || !comment || !Number.isFinite(rating)) {
       return res.status(400).json({ error: 'Missing required review fields' });
     }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // A review is only flagged as verified when the reviewer actually bought the product.
+    const verifiedPurchase = req.user
+      ? queryAll(
+          db,
+          `SELECT oi.id FROM order_items oi JOIN orders o ON oi.order_id = o.id
+           WHERE oi.product_id = ? AND (o.user_id = ? OR o.customer_email = ?) LIMIT 1`,
+          [id, req.user.id, req.user.email]
+        ).length > 0
+        ? 1
+        : 0
+      : 0;
 
     const reviewId = `rev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const createdAt = new Date().toISOString();
@@ -162,7 +193,7 @@ router.post('/:id/reviews', async (req, res) => {
     db.run(
       `INSERT INTO reviews (id, product_id, user_name, rating, comment, verified_purchase, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?);`,
-      [reviewId, id, userName, Number(rating), comment, 1, createdAt]
+      [reviewId, id, userName, rating, comment, verifiedPurchase, createdAt]
     );
 
     // Recalculate product rating
@@ -177,13 +208,13 @@ router.post('/:id/reviews', async (req, res) => {
       id: reviewId,
       product_id: id,
       user_name: userName,
-      rating: Number(rating),
+      rating,
       comment,
-      verified_purchase: 1,
+      verified_purchase: verifiedPurchase,
       created_at: createdAt
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'products route', err);
   }
 });
 

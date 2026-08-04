@@ -1,8 +1,70 @@
+import crypto from 'crypto';
 import { Router, Request } from 'express';
 import { getDb, persistDb } from '../db.js';
-import { authenticateUser, UserJwtPayload } from '../auth.js';
+import { authenticateUser, optionalAuthenticateUser, UserJwtPayload } from '../auth.js';
+import { isValidEmail, isValidPhone, isValidPincode, rateLimit, sanitizeText, serverError } from '../security.js';
 
 const router = Router();
+
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Too many checkout attempts. Please try again in a few minutes.'
+});
+
+const lookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: 'Too many lookup requests. Please try again in a few minutes.'
+});
+
+const MAX_ITEMS_PER_ORDER = 20;
+const MAX_QUANTITY_PER_ITEM = 10;
+const GST_RATE = 0.12;
+const FREE_DELIVERY_THRESHOLD = 5000;
+const DELIVERY_FEE = 250;
+const PAYMENT_METHODS = ['UPI', 'Card', 'NetBanking', 'Net Banking', 'Wallet', 'Cash on Delivery', 'COD'];
+
+function normalizePaymentMethod(value: unknown): string | null {
+  const text = sanitizeText(value, 60);
+  if (!text) return 'UPI';
+  const matched = PAYMENT_METHODS.find((pm) => text.toLowerCase().includes(pm.toLowerCase()));
+  return matched ? text : null;
+}
+
+function isCashOnDelivery(paymentMethod: string): boolean {
+  return paymentMethod.toLowerCase().includes('cash on delivery') || paymentMethod.toLowerCase().includes('cod');
+}
+
+// Only the shipping fields the app needs, each length- and format-checked.
+function parseShippingAddress(raw: any) {
+  if (!raw || typeof raw !== 'object') return null;
+  const fullName = sanitizeText(raw.fullName, 100);
+  const addressLine1 = sanitizeText(raw.addressLine1, 200);
+  const city = sanitizeText(raw.city, 100);
+  const state = sanitizeText(raw.state, 100);
+  const phone = isValidPhone(raw.phone) ? String(raw.phone).trim() : null;
+  const pincode = isValidPincode(raw.pincode) ? String(raw.pincode).trim() : null;
+
+  if (!fullName || !addressLine1 || !city || !state || !phone || !pincode) return null;
+
+  return {
+    fullName,
+    phone,
+    addressLine1,
+    addressLine2: raw.addressLine2 ? sanitizeText(raw.addressLine2, 200) : null,
+    landmark: raw.landmark ? sanitizeText(raw.landmark, 200) : null,
+    city,
+    state,
+    pincode,
+    country: sanitizeText(raw.country, 60) || 'India'
+  };
+}
+
+function maskPhone(phone: string): string {
+  const digits = String(phone).replace(/\D/g, '');
+  return digits.length > 4 ? `${'*'.repeat(digits.length - 4)}${digits.slice(-4)}` : '****';
+}
 
 function queryAll(db: any, sql: string, params: any[] = []) {
   const stmt = db.prepare(sql);
@@ -35,36 +97,73 @@ function formatTime(date: Date): string {
 }
 
 // CREATE NEW ORDER (Checkout)
-router.post('/', async (req, res) => {
+router.post('/', checkoutLimiter, optionalAuthenticateUser, async (req: Request & { user?: UserJwtPayload }, res) => {
   try {
     const db = await getDb();
-    const {
-      customerName,
-      customerEmail,
-      customerPhone,
-      shippingAddress,
-      items,
-      paymentMethod,
-      couponCode,
-      userId
-    } = req.body;
 
-    if (!customerName || !customerEmail || !customerPhone || !shippingAddress || !items || items.length === 0) {
-      return res.status(400).json({ error: 'Missing required order details' });
+    const customerName = sanitizeText(req.body?.customerName, 100);
+    const customerEmail = isValidEmail(req.body?.customerEmail) ? req.body.customerEmail.trim().toLowerCase() : null;
+    const customerPhone = isValidPhone(req.body?.customerPhone) ? String(req.body.customerPhone).trim() : null;
+    const shippingAddress = parseShippingAddress(req.body?.shippingAddress);
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+    const paymentMethod = normalizePaymentMethod(req.body?.paymentMethod);
+    const couponCode = req.body?.couponCode ? sanitizeText(req.body.couponCode, 40) : null;
+
+    if (!customerName || !customerEmail || !customerPhone || !shippingAddress || rawItems.length === 0) {
+      return res.status(400).json({ error: 'Missing or invalid required order details' });
     }
 
-    // Calculate subtotal
-    let subtotal = 0;
-    for (const it of items) {
-      subtotal += Number(it.price) * Number(it.quantity);
+    if (!paymentMethod) {
+      return res.status(400).json({ error: 'Unsupported payment method' });
     }
+
+    if (rawItems.length > MAX_ITEMS_PER_ORDER) {
+      return res.status(400).json({ error: `An order cannot contain more than ${MAX_ITEMS_PER_ORDER} line items` });
+    }
+
+    // Prices, titles and images always come from the catalogue, never from the client payload.
+    const items: Array<{ productId: string; title: string; image: string; size: string; color: string; quantity: number; unitPrice: number }> = [];
+    for (const raw of rawItems) {
+      const productId = sanitizeText(raw?.productId, 100);
+      const quantity = Number(raw?.quantity);
+
+      if (!productId) {
+        return res.status(400).json({ error: 'Each order item requires a product reference' });
+      }
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY_PER_ITEM) {
+        return res.status(400).json({ error: `Item quantity must be a whole number between 1 and ${MAX_QUANTITY_PER_ITEM}` });
+      }
+
+      const product = queryAll(db, 'SELECT * FROM products WHERE id = ? LIMIT 1', [productId])[0];
+      if (!product) {
+        return res.status(400).json({ error: 'One or more products in the order are no longer available' });
+      }
+
+      const availableSizes: string[] = JSON.parse(product.sizes_json || '[]');
+      const requestedSize = sanitizeText(raw?.size, 40);
+      const size = requestedSize && availableSizes.includes(requestedSize) ? requestedSize : availableSizes[0] || 'Standard';
+      const images: string[] = JSON.parse(product.images_json || '[]');
+      const unitPrice = Number(product.discount_price ?? product.price);
+
+      items.push({
+        productId: product.id,
+        title: product.title,
+        image: images[0] || '',
+        size,
+        color: product.color || 'Royal Classic',
+        quantity,
+        unitPrice
+      });
+    }
+
+    const subtotal = items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
 
     // Coupon calculation
     let discountAmount = 0;
     let validCoupon: any = null;
     if (couponCode) {
       const coupRows = queryAll(db, 'SELECT * FROM coupons WHERE code = ? AND is_active = 1 LIMIT 1', [couponCode.toUpperCase()]);
-      if (coupRows.length > 0) {
+      if (coupRows.length > 0 && (!coupRows[0].expiry_date || new Date(coupRows[0].expiry_date).getTime() >= Date.now())) {
         validCoupon = coupRows[0];
         if (subtotal >= validCoupon.min_spend) {
           if (validCoupon.discount_type === 'percentage') {
@@ -83,20 +182,23 @@ router.post('/', async (req, res) => {
 
     // GST (12% luxury ethnic apparel)
     const taxableAmount = Math.max(0, subtotal - discountAmount);
-    const gstAmount = Math.round(taxableAmount * 0.12);
+    const gstAmount = Math.round(taxableAmount * GST_RATE);
 
     // Free luxury insured delivery above 5000, else 250
-    const deliveryFee = taxableAmount >= 5000 ? 0 : 250;
+    const deliveryFee = taxableAmount >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
     const grandTotal = taxableAmount + gstAmount + deliveryFee;
+    const codOrder = isCashOnDelivery(paymentMethod);
+    const userId = req.user?.id || null;
 
     const now = new Date();
     const estDeliveryDate = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
     const estDeliveryStr = formatDate(estDeliveryDate);
 
-    const randomSuffix = Math.floor(10000 + Math.random() * 90000);
-    const orderId = `ord_${Date.now()}_${randomSuffix}`;
-    const orderNumber = `RYL-2026-${randomSuffix}`;
-    const trackingId = `TRK-RYL-${Math.floor(10000 + Math.random() * 90000)}`;
+    // Unguessable references so order and tracking lookups cannot be enumerated.
+    const orderSuffix = crypto.randomBytes(5).toString('hex').toUpperCase();
+    const orderId = `ord_${Date.now()}_${orderSuffix}`;
+    const orderNumber = `RYL-${now.getFullYear()}-${orderSuffix}`;
+    const trackingId = `TRK-RYL-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
 
     const dateStr = formatDate(now);
     const timeStr = formatTime(now);
@@ -113,7 +215,7 @@ router.post('/', async (req, res) => {
         orderId,
         orderNumber,
         trackingId,
-        userId || 'guest_user',
+        userId,
         customerName,
         customerEmail,
         customerPhone,
@@ -123,9 +225,9 @@ router.post('/', async (req, res) => {
         discountAmount,
         deliveryFee,
         grandTotal,
-        couponCode || null,
-        paymentMethod || 'UPI',
-        paymentMethod === 'Cash on Delivery' ? 'PENDING' : 'PAID',
+        validCoupon ? validCoupon.code : null,
+        paymentMethod,
+        codOrder ? 'PENDING' : 'PAID',
         'Preparing Order', // Initial state upon successful payment confirmation
         'Blue Dart Apex Luxury',
         estDeliveryStr,
@@ -138,7 +240,7 @@ router.post('/', async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const itemId = `item_${orderId}_${i + 1}`;
-      const itemTotal = Number(item.price) * Number(item.quantity);
+      const itemTotal = item.unitPrice * item.quantity;
 
       db.run(
         `INSERT INTO order_items (id, order_id, product_id, product_title, product_image, size, color, quantity, unit_price, total_price)
@@ -149,22 +251,22 @@ router.post('/', async (req, res) => {
           item.productId,
           item.title,
           item.image,
-          item.size || 'Standard',
-          item.color || 'Royal Classic',
-          Number(item.quantity),
-          Number(item.price),
+          item.size,
+          item.color,
+          item.quantity,
+          item.unitPrice,
           itemTotal
         ]
       );
 
       // Decrement stock
-      db.run('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?', [Number(item.quantity), item.productId]);
+      db.run('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?', [item.quantity, item.productId]);
     }
 
     // Insert Payment Record
     const paymentId = `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const txnId = `TXN-RYL-${Date.now().toString().slice(-7)}`;
-    const gatewayRef = `PG-${paymentMethod.toUpperCase().slice(0, 3)}-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const gatewayRef = `PG-${paymentMethod.toUpperCase().slice(0, 3)}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     db.run(
       `INSERT INTO payments (id, order_id, payment_method, transaction_id, gateway_ref, amount, status, paid_at)
@@ -176,7 +278,7 @@ router.post('/', async (req, res) => {
         txnId,
         gatewayRef,
         grandTotal,
-        paymentMethod === 'Cash on Delivery' ? 'PENDING' : 'SUCCESS',
+        codOrder ? 'PENDING' : 'SUCCESS',
         now.toISOString()
       ]
     );
@@ -278,7 +380,7 @@ router.post('/', async (req, res) => {
         payment,
         status_history: statusHistory
       },
-      invoiceNumber: `INV-2026-${randomSuffix}`,
+      invoiceNumber: `INV-${now.getFullYear()}-${orderSuffix}`,
       paymentReceipt: {
         transactionId: txnId,
         gatewayRef,
@@ -288,13 +390,12 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (err: any) {
-    console.error('Error creating order:', err);
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'orders route', err);
   }
 });
 
-// GET order details by Order ID or Order Number
-router.get('/:idOrNumber', async (req, res) => {
+// GET order details by Order ID or Order Number (owner only)
+router.get('/:idOrNumber', authenticateUser, async (req: Request & { user?: UserJwtPayload }, res) => {
   try {
     const db = await getDb();
     const { idOrNumber } = req.params;
@@ -305,6 +406,13 @@ router.get('/:idOrNumber', async (req, res) => {
     }
 
     const order = orders[0];
+    const requester = req.user!;
+    const ownsOrder = order.user_id === requester.id
+      || (order.customer_email && requester.email && order.customer_email.toLowerCase() === requester.email.toLowerCase());
+    if (!ownsOrder) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
     const items = queryAll(db, 'SELECT * FROM order_items WHERE order_id = ?', [order.id]);
     const payments = queryAll(db, 'SELECT * FROM payments WHERE order_id = ?', [order.id]);
     const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [order.id]);
@@ -317,17 +425,17 @@ router.get('/:idOrNumber', async (req, res) => {
       status_history: history
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'orders route', err);
   }
 });
 
 // GET tracking information with complete 8-stage timeline directly from database
-router.get('/track/:query', async (req, res) => {
+router.get('/track/:query', lookupLimiter, async (req, res) => {
   try {
     const db = await getDb();
     const { query } = req.params;
 
-    const cleanQuery = query.trim();
+    const cleanQuery = (query || '').trim().slice(0, 100);
     const orders = queryAll(
       db,
       'SELECT * FROM orders WHERE tracking_id = ? OR order_number = ? OR id = ? LIMIT 1',
@@ -420,7 +528,18 @@ router.get('/track/:query', async (req, res) => {
       estimatedDelivery: order.estimated_delivery_date,
       orderDate: formatDate(new Date(order.created_at)),
       customerName: order.customer_name,
-      shippingAddress: JSON.parse(order.shipping_address_json),
+      // Tracking is a public lookup, so only coarse delivery location is exposed.
+      shippingAddress: (() => {
+        const addr = JSON.parse(order.shipping_address_json);
+        return {
+          fullName: addr.fullName,
+          phone: addr.phone ? maskPhone(addr.phone) : '',
+          city: addr.city,
+          state: addr.state,
+          pincode: addr.pincode,
+          country: addr.country || 'India'
+        };
+      })(),
       items,
       grandTotal: order.grand_total,
       timeline,
@@ -428,7 +547,7 @@ router.get('/track/:query', async (req, res) => {
       supportWhatsAppUrl: `https://wa.me/918000461784?text=${encodeURIComponent(`Hello ROYALS, I have a question regarding Order #${order.order_number}.`)}`
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'orders route', err);
   }
 });
 
@@ -453,7 +572,7 @@ router.get('/user/my-orders', authenticateUser, async (req: any, res) => {
 
     res.json(enriched);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return serverError(res, 'orders route', err);
   }
 });
 

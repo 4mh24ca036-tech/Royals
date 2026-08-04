@@ -165,7 +165,8 @@ export interface TrackingData {
   estimatedDelivery: string;
   orderDate: string;
   customerName: string;
-  shippingAddress: ShippingAddress;
+  // Public tracking exposes only the coarse delivery location.
+  shippingAddress: Pick<ShippingAddress, 'fullName' | 'phone' | 'city' | 'state' | 'pincode'> & { country?: string };
   items: OrderItem[];
   grandTotal: number;
   timeline: TimelineMilestone[];
