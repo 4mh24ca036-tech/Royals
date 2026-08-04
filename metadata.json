@@ -1,0 +1,6 @@
+{
+  "name": "ROYALS - Luxury Indian Ethnic Fashion",
+  "description": "High-end luxury Indian ethnic couture e-commerce platform with real-time order tracking, custom sizing, secure checkout, and comprehensive admin suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
