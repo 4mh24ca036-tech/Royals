@@ -1,38 +1,12 @@
 import { Router, Request } from 'express';
 import { getDb, persistDb } from '../db.js';
 import { authenticateUser, UserJwtPayload } from '../auth.js';
+import { queryAll, generateId } from '../utils/db.js';
+import { formatDate, formatTime } from '../utils/datetime.js';
+import { calculateCouponDiscount, calculateOrderTotals, sumLineItems } from '../../shared/pricing.js';
+import { formatINR } from '../../shared/format.js';
 
 const router = Router();
-
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
-
-function formatDate(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = monthNames[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-}
-
-function formatTime(date: Date): string {
-  let hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-}
 
 // CREATE NEW ORDER (Checkout)
 router.post('/', async (req, res) => {
@@ -53,41 +27,22 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing required order details' });
     }
 
-    // Calculate subtotal
-    let subtotal = 0;
-    for (const it of items) {
-      subtotal += Number(it.price) * Number(it.quantity);
-    }
+    const subtotal = sumLineItems(items);
 
     // Coupon calculation
     let discountAmount = 0;
-    let validCoupon: any = null;
     if (couponCode) {
       const coupRows = queryAll(db, 'SELECT * FROM coupons WHERE code = ? AND is_active = 1 LIMIT 1', [couponCode.toUpperCase()]);
       if (coupRows.length > 0) {
-        validCoupon = coupRows[0];
+        const validCoupon = coupRows[0];
         if (subtotal >= validCoupon.min_spend) {
-          if (validCoupon.discount_type === 'percentage') {
-            discountAmount = (subtotal * validCoupon.discount_value) / 100;
-            if (validCoupon.max_discount && discountAmount > validCoupon.max_discount) {
-              discountAmount = validCoupon.max_discount;
-            }
-          } else {
-            discountAmount = Math.min(subtotal, validCoupon.discount_value);
-          }
-          // Increment coupon usage
+          discountAmount = calculateCouponDiscount(validCoupon, subtotal);
           db.run('UPDATE coupons SET usage_count = usage_count + 1 WHERE id = ?', [validCoupon.id]);
         }
       }
     }
 
-    // GST (12% luxury ethnic apparel)
-    const taxableAmount = Math.max(0, subtotal - discountAmount);
-    const gstAmount = Math.round(taxableAmount * 0.12);
-
-    // Free luxury insured delivery above 5000, else 250
-    const deliveryFee = taxableAmount >= 5000 ? 0 : 250;
-    const grandTotal = taxableAmount + gstAmount + deliveryFee;
+    const { gstAmount, deliveryFee, grandTotal } = calculateOrderTotals(subtotal, discountAmount);
 
     const now = new Date();
     const estDeliveryDate = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
@@ -162,7 +117,7 @@ router.post('/', async (req, res) => {
     }
 
     // Insert Payment Record
-    const paymentId = `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const paymentId = generateId('pay');
     const txnId = `TXN-RYL-${Date.now().toString().slice(-7)}`;
     const gatewayRef = `PG-${paymentMethod.toUpperCase().slice(0, 3)}-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
@@ -206,7 +161,7 @@ router.post('/', async (req, res) => {
           `hist_${orderId}_2`,
           orderId,
           'Payment Confirmed',
-          `Payment of ₹${grandTotal.toLocaleString('en-IN')} received via ${paymentMethod} (Ref: ${gatewayRef})`,
+          `Payment of ${formatINR(grandTotal)} received via ${paymentMethod} (Ref: ${gatewayRef})`,
           'Payment Gateway',
           dateStr,
           timeStr,
@@ -221,7 +176,7 @@ router.post('/', async (req, res) => {
           `hist_${orderId}_2`,
           orderId,
           'Payment Confirmed',
-          `Cash on Delivery verified with OTP. Payment of ₹${grandTotal.toLocaleString('en-IN')} due on arrival.`,
+          `Cash on Delivery verified with OTP. Payment of ${formatINR(grandTotal)} due on arrival.`,
           'Cash on Delivery Desk',
           dateStr,
           timeStr,
@@ -255,7 +210,7 @@ router.post('/', async (req, res) => {
         userId || 'guest_user',
         orderId,
         'Order Confirmed & Placed',
-        `📦 Your order is being prepared. Order #${orderNumber} (₹${grandTotal.toLocaleString('en-IN')}) expected by ${estDeliveryStr}.`,
+        `📦 Your order is being prepared. Order #${orderNumber} (${formatINR(grandTotal)}) expected by ${estDeliveryStr}.`,
         'order_placed',
         0,
         now.toISOString()

@@ -12,60 +12,54 @@ import {
   InventoryItem,
   StoreInfo
 } from '../types';
+import { STORAGE_KEYS, StorageKey, readStorage } from '../utils/storage';
 
 const API_BASE = '/api';
 
-// Helper for fetch with token
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit,
+  tokenKey: StorageKey,
+  errorFallback: string
+): Promise<T> {
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  // Attach customer token if available
-  const userToken = localStorage.getItem('royals_user_token');
-  if (userToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${userToken}`);
+  const token = readStorage(tokenKey);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers
-  });
-
+  const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error || 'An unexpected error occurred');
+    throw new Error(data.error || errorFallback);
   }
 
   return data as T;
 }
 
-// Helper for admin request with admin token
-async function adminRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-  }
+// Customer-scoped request
+function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiFetch<T>(endpoint, options, STORAGE_KEYS.userToken, 'An unexpected error occurred');
+}
 
-  const adminToken = localStorage.getItem('royals_admin_token');
-  if (adminToken) {
-    headers.set('Authorization', `Bearer ${adminToken}`);
-  }
+// Admin-scoped request
+function adminRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiFetch<T>(endpoint, options, STORAGE_KEYS.adminToken, 'An unexpected error occurred in Admin request');
+}
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers
+function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== false && value !== '') {
+      query.append(key, String(value));
+    }
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || 'An unexpected error occurred in Admin request');
-  }
-
-  return data as T;
+  return query.toString();
 }
 
 export const api = {
@@ -84,20 +78,7 @@ export const api = {
     sort?: string;
     featured?: boolean;
     newArrival?: boolean;
-  } = {}) => {
-    const query = new URLSearchParams();
-    if (params.category) query.append('category', params.category);
-    if (params.search) query.append('search', params.search);
-    if (params.minPrice) query.append('minPrice', params.minPrice.toString());
-    if (params.maxPrice) query.append('maxPrice', params.maxPrice.toString());
-    if (params.fabric) query.append('fabric', params.fabric);
-    if (params.color) query.append('color', params.color);
-    if (params.sort) query.append('sort', params.sort);
-    if (params.featured) query.append('featured', 'true');
-    if (params.newArrival) query.append('newArrival', 'true');
-
-    return request<Product[]>(`/products?${query.toString()}`);
-  },
+  } = {}) => request<Product[]>(`/products?${buildQuery(params)}`),
   getProductByIdOrSlug: (idOrSlug: string) => request<Product>(`/products/${idOrSlug}`),
   submitProductReview: (productId: string, data: { userName: string; rating: number; comment: string }) =>
     request<any>(`/products/${productId}/reviews`, {
@@ -168,12 +149,8 @@ export const api = {
       body: JSON.stringify(credentials)
     }),
   getAdminStats: () => adminRequest<AdminStats>('/admin/stats'),
-  getAdminOrders: (params: { status?: string; search?: string } = {}) => {
-    const query = new URLSearchParams();
-    if (params.status) query.append('status', params.status);
-    if (params.search) query.append('search', params.search);
-    return adminRequest<Order[]>(`/admin/orders?${query.toString()}`);
-  },
+  getAdminOrders: (params: { status?: string; search?: string } = {}) =>
+    adminRequest<Order[]>(`/admin/orders?${buildQuery(params)}`),
   updateOrderStatus: (orderId: string, data: { status: string; notes?: string; courierName?: string; trackingId?: string; estimatedDeliveryDate?: string }) =>
     adminRequest<{ success: boolean; message: string; serverTimestamp: any; order: Order }>(
       `/admin/orders/${orderId}/status`,

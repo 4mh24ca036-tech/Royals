@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { Order } from '../types';
+import { formatINR, formatDateTime, formatDate } from '../utils/format';
 
 export function downloadInvoicePdf(order: Order) {
   const doc = new jsPDF({
@@ -56,7 +57,7 @@ export function downloadInvoicePdf(order: Order) {
   doc.setFontSize(9);
   doc.setTextColor(80, 80, 80);
   doc.text(`Invoice No: ${invoiceNumber}`, 20, 53);
-  doc.text(`Invoice Date: ${new Date(order.created_at).toLocaleDateString('en-GB')}`, 85, 53);
+  doc.text(`Invoice Date: ${formatDate(order.created_at)}`, 85, 53);
   doc.text(`Order No: #${order.order_number}`, 145, 53);
 
   // Customer Details & Shipping Details
@@ -128,8 +129,8 @@ export function downloadInvoicePdf(order: Order) {
     doc.text('6204', 110, rowY + 6);
     doc.text(`${item.size}`, 125, rowY + 6);
     doc.text(String(item.quantity), 157, rowY + 6);
-    doc.text(`₹${item.unit_price.toLocaleString('en-IN')}`, 168, rowY + 6);
-    doc.text(`₹${item.total_price.toLocaleString('en-IN')}`, pageWidth - 18, rowY + 6, { align: 'right' });
+    doc.text(formatINR(item.unit_price), 168, rowY + 6);
+    doc.text(formatINR(item.total_price), pageWidth - 18, rowY + 6, { align: 'right' });
   });
 
   const tableBottomY = y + (order.items.length * 10) + 6;
@@ -148,23 +149,23 @@ export function downloadInvoicePdf(order: Order) {
   doc.setTextColor(60, 60, 60);
 
   doc.text('Items Subtotal:', calcX, calcY);
-  doc.text(`₹${order.subtotal.toLocaleString('en-IN')}`, valX, calcY, { align: 'right' });
+  doc.text(formatINR(order.subtotal), valX, calcY, { align: 'right' });
 
   if (order.discount_amount > 0) {
     calcY += 6;
     doc.setTextColor(180, 50, 50);
     doc.text(`Discount (${order.coupon_code || 'Promo'}):`, calcX, calcY);
-    doc.text(`- ₹${order.discount_amount.toLocaleString('en-IN')}`, valX, calcY, { align: 'right' });
+    doc.text(`- ${formatINR(order.discount_amount)}`, valX, calcY, { align: 'right' });
     doc.setTextColor(60, 60, 60);
   }
 
   calcY += 6;
   doc.text('GST (12% Apparel Tax):', calcX, calcY);
-  doc.text(`₹${order.gst_amount.toLocaleString('en-IN')}`, valX, calcY, { align: 'right' });
+  doc.text(formatINR(order.gst_amount), valX, calcY, { align: 'right' });
 
   calcY += 6;
   doc.text('Insured Delivery Charge:', calcX, calcY);
-  doc.text(order.delivery_fee === 0 ? 'FREE (Complimentary)' : `₹${order.delivery_fee.toLocaleString('en-IN')}`, valX, calcY, { align: 'right' });
+  doc.text(order.delivery_fee === 0 ? 'FREE (Complimentary)' : formatINR(order.delivery_fee), valX, calcY, { align: 'right' });
 
   calcY += 7;
   doc.setFillColor(245, 239, 235);
@@ -173,7 +174,7 @@ export function downloadInvoicePdf(order: Order) {
   doc.setFontSize(10);
   doc.setTextColor(26, 26, 26);
   doc.text('Grand Total:', calcX, calcY + 2);
-  doc.text(`₹${order.grand_total.toLocaleString('en-IN')}`, valX, calcY + 2, { align: 'right' });
+  doc.text(formatINR(order.grand_total), valX, calcY + 2, { align: 'right' });
 
   // Bank & Legal Notes (Left side)
   let notesY = tableBottomY + 6;
@@ -264,7 +265,7 @@ export function downloadPaymentReceiptPdf(order: Order) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(140, 120, 90);
-  doc.text(`₹${order.grand_total.toLocaleString('en-IN')}`, pageWidth / 2, 79, { align: 'center' });
+  doc.text(formatINR(order.grand_total), pageWidth / 2, 79, { align: 'center' });
 
   // Receipt details table
   let rowY = 90;
@@ -277,7 +278,7 @@ export function downloadPaymentReceiptPdf(order: Order) {
     { label: 'Payment Method', value: order.payment_method },
     { label: 'Transaction Reference', value: order.payment?.transaction_id || `TXN-RYL-${order.order_number.slice(-5)}` },
     { label: 'Payment Gateway UTR', value: order.payment?.gateway_ref || 'PG-SETTLED-SUCCESS' },
-    { label: 'Payment Date & Time', value: new Date(order.created_at).toLocaleString('en-GB') },
+    { label: 'Payment Date & Time', value: formatDateTime(order.created_at) },
     { label: 'Merchant', value: 'ROYALS Haute Couture, Jaipur (GSTIN: 08AAACR8942K1Z5)' }
   ];
 
@@ -355,7 +356,7 @@ export function downloadOrderSummaryPdf(order: Order) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(80, 80, 80);
-  doc.text(`Order Date: ${new Date(order.created_at).toLocaleDateString('en-GB')}`, 14, 44);
+  doc.text(`Order Date: ${formatDate(order.created_at)}`, 14, 44);
   doc.text(`Current Status: ${order.order_status}`, 110, 44);
   doc.text(`Estimated Delivery: ${order.estimated_delivery_date}`, 14, 50);
   doc.text(`Courier Partner: ${order.courier_name || 'Blue Dart Apex Luxury'}`, 110, 50);
@@ -393,7 +394,7 @@ export function downloadOrderSummaryPdf(order: Order) {
     doc.setFontSize(8.5);
     doc.setTextColor(100, 100, 100);
     doc.text(`Size: ${item.size} | Color: ${item.color} | Quantity: ${item.quantity}`, 20, itemY + 5);
-    doc.text(`Price: ₹${item.total_price.toLocaleString('en-IN')}`, pageWidth - 20, itemY + 5, { align: 'right' });
+    doc.text(`Price: ${formatINR(item.total_price)}`, pageWidth - 20, itemY + 5, { align: 'right' });
 
     itemY += 12;
   });
@@ -408,7 +409,7 @@ export function downloadOrderSummaryPdf(order: Order) {
   doc.setFontSize(11);
   doc.setTextColor(26, 26, 26);
   doc.text('Grand Total Settled:', 14, itemY);
-  doc.text(`₹${order.grand_total.toLocaleString('en-IN')}`, pageWidth - 14, itemY, { align: 'right' });
+  doc.text(formatINR(order.grand_total), pageWidth - 14, itemY, { align: 'right' });
 
   // WhatsApp Support Note
   itemY += 16;

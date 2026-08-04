@@ -44,6 +44,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { api } from '../../services/api';
 import { AdminStats, Order, Product, Category, Coupon, InventoryItem } from '../../types';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, downloadOrderSummaryPdf } from '../../services/pdfGenerator';
+import { formatINR, formatDate } from '../../utils/format';
 
 interface AdminPortalProps {
   isOpen: boolean;
@@ -464,7 +465,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <span className="text-[10px] text-[#A89F91]">{liveToast.time}</span>
             </div>
             <h5 className="font-serif font-bold text-sm text-white mt-0.5">{liveToast.customerName}</h5>
-            <p className="text-xs text-[#E8DFD8]">Order #{liveToast.orderNumber} • <span className="font-bold text-[#C5A880]">₹{liveToast.grandTotal.toLocaleString('en-IN')}</span></p>
+            <p className="text-xs text-[#E8DFD8]">Order #{liveToast.orderNumber} • <span className="font-bold text-[#C5A880]">{formatINR(liveToast.grandTotal)}</span></p>
             <p className="text-[10px] text-[#C5A880] mt-1 underline">Click to view & dispatch</p>
           </div>
           <button 
@@ -765,14 +766,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
                       <span className="text-xs font-semibold text-[#8C785A] uppercase tracking-wider">Total Revenue</span>
-                      <h4 className="text-2xl font-serif font-bold text-[#141414]">₹{stats.totalRevenue.toLocaleString('en-IN')}</h4>
+                      <h4 className="text-2xl font-serif font-bold text-[#141414]">{formatINR(stats.totalRevenue)}</h4>
                       <p className="text-[11px] text-emerald-800 font-medium">From {stats.totalOrders} Verified Consignments</p>
                     </div>
 
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
                       <span className="text-xs font-semibold text-[#8C785A] uppercase tracking-wider">Total Orders</span>
                       <h4 className="text-2xl font-serif font-bold text-[#141414]">{stats.totalOrders}</h4>
-                      <p className="text-[11px] text-[#706B65]">AOV: ₹{stats.avgOrderValue.toLocaleString('en-IN')}</p>
+                      <p className="text-[11px] text-[#706B65]">AOV: {formatINR(stats.avgOrderValue)}</p>
                     </div>
 
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
@@ -898,7 +899,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 <span className="font-medium text-[#141414] block">{o.customer_name}</span>
                                 <span className="text-[10px] text-[#706B65]">{o.customer_phone}</span>
                               </td>
-                              <td className="p-3 font-bold text-[#141414]">₹{o.grand_total.toLocaleString('en-IN')}</td>
+                              <td className="p-3 font-bold text-[#141414]">{formatINR(o.grand_total)}</td>
                               <td className="p-3">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                   o.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -990,7 +991,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               <tr key={ord.id} className="hover:bg-[#FAF8F5] transition-colors">
                                 <td className="p-3.5">
                                   <span className="font-mono font-bold text-sm text-[#141414] block">#{ord.order_number}</span>
-                                  <span className="text-[10px] text-[#706B65]">{new Date(ord.created_at).toLocaleDateString('en-GB')}</span>
+                                  <span className="text-[10px] text-[#706B65]">{formatDate(ord.created_at)}</span>
                                 </td>
 
                                 <td className="p-3.5">
@@ -1011,7 +1012,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 </td>
 
                                 <td className="p-3.5">
-                                  <span className="font-serif font-bold text-sm text-[#141414] block">₹{ord.grand_total.toLocaleString('en-IN')}</span>
+                                  <span className="font-serif font-bold text-sm text-[#141414] block">{formatINR(ord.grand_total)}</span>
                                   <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[9px] font-bold ${
                                     ord.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                                   }`}>
@@ -1140,11 +1141,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                           <div className="flex items-baseline gap-2">
                             <span className="font-serif font-bold text-base text-[#141414]">
-                              ₹{(p.discount_price || p.price).toLocaleString('en-IN')}
+                              {formatINR((p.discount_price || p.price))}
                             </span>
                             {p.discount_price && (
                               <span className="text-xs text-gray-400 line-through">
-                                ₹{p.price.toLocaleString('en-IN')}
+                                {formatINR(p.price)}
                               </span>
                             )}
                           </div>
@@ -1207,8 +1208,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             <td className="p-3 text-[#706B65] font-mono">{c.email}</td>
                             <td className="p-3 font-mono">{c.phone || 'N/A'}</td>
                             <td className="p-3 font-bold">{c.totalOrders || 0}</td>
-                            <td className="p-3 font-serif font-bold text-[#141414]">₹{(c.totalSpent || 0).toLocaleString('en-IN')}</td>
-                            <td className="p-3 text-[#706B65]">{new Date(c.created_at).toLocaleDateString('en-GB')}</td>
+                            <td className="p-3 font-serif font-bold text-[#141414]">{formatINR((c.totalSpent || 0))}</td>
+                            <td className="p-3 text-[#706B65]">{formatDate(c.created_at)}</td>
                             <td className="p-3 text-right">
                               {c.phone ? (
                                 <a
@@ -1244,13 +1245,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
                       <span className="text-xs font-semibold text-[#8C785A] uppercase tracking-wider">Settled Revenue</span>
-                      <h4 className="text-2xl font-serif font-bold text-[#141414]">₹{analytics.totalRevenue.toLocaleString('en-IN')}</h4>
+                      <h4 className="text-2xl font-serif font-bold text-[#141414]">{formatINR(analytics.totalRevenue)}</h4>
                       <p className="text-[11px] text-emerald-800 font-medium">100% Verified in MySQL Store</p>
                     </div>
 
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
                       <span className="text-xs font-semibold text-[#8C785A] uppercase tracking-wider">Average Order Value</span>
-                      <h4 className="text-2xl font-serif font-bold text-[#141414]">₹{analytics.avgOrderValue.toLocaleString('en-IN')}</h4>
+                      <h4 className="text-2xl font-serif font-bold text-[#141414]">{formatINR(analytics.avgOrderValue)}</h4>
                       <p className="text-[11px] text-[#706B65]">High-Ticket Luxury Tier</p>
                     </div>
 
@@ -1277,7 +1278,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               <p className="text-[10px] text-[#706B65]">{tp.count} units ordered</p>
                             </div>
                           </div>
-                          <span className="font-serif font-bold text-sm text-[#141414]">₹{tp.revenue.toLocaleString('en-IN')}</span>
+                          <span className="font-serif font-bold text-sm text-[#141414]">{formatINR(tp.revenue)}</span>
                         </div>
                       ))}
                     </div>
@@ -1290,7 +1291,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       {analytics.paymentMethods && Object.entries(analytics.paymentMethods).map(([k, v]: [string, any]) => (
                         <div key={k} className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E8DFD8]">
                           <span className="text-[10px] text-[#8C785A] uppercase tracking-wider font-bold block">{k}</span>
-                          <span className="text-lg font-serif font-bold text-[#141414] mt-1 block">₹{v.total.toLocaleString('en-IN')}</span>
+                          <span className="text-lg font-serif font-bold text-[#141414] mt-1 block">{formatINR(v.total)}</span>
                           <span className="text-[10px] text-[#706B65] mt-0.5 block">{v.count} Transactions</span>
                         </div>
                       ))}
@@ -1395,7 +1396,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             <td className="p-3 font-bold text-[#8C785A]">
                               {cp.discount_value}{cp.discount_type === 'percentage' ? '%' : '₹ Flat'}
                             </td>
-                            <td className="p-3">₹{cp.min_spend.toLocaleString('en-IN')}</td>
+                            <td className="p-3">{formatINR(cp.min_spend)}</td>
                             <td className="p-3 font-mono">{cp.usage_count} times</td>
                             <td className="p-3 text-[#706B65]">{cp.expiry_date}</td>
                             <td className="p-3">
@@ -1446,7 +1447,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-[#A89F91]">
-                  Placed on {new Date(selectedOrder.created_at).toLocaleDateString('en-GB')} • Tracking ID: {selectedOrder.tracking_id}
+                  Placed on {formatDate(selectedOrder.created_at)} • Tracking ID: {selectedOrder.tracking_id}
                 </p>
               </div>
 
@@ -1517,7 +1518,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </h4>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-[#706B65]">Grand Total:</span>
-                    <span className="font-serif font-bold text-base text-[#141414]">₹{selectedOrder.grand_total.toLocaleString('en-IN')}</span>
+                    <span className="font-serif font-bold text-base text-[#141414]">{formatINR(selectedOrder.grand_total)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#706B65]">Payment Method:</span>
@@ -1565,7 +1566,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </div>
                       </div>
                       <span className="font-serif font-bold text-xs text-[#141414]">
-                        ₹{item.total_price.toLocaleString('en-IN')}
+                        {formatINR(item.total_price)}
                       </span>
                     </div>
                   ))}

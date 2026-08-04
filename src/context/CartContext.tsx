@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, Product } from '../types';
 import { api } from '../services/api';
+import { STORAGE_KEYS, readJson, readStorage, removeStorage, writeJson, writeStorage } from '../utils/storage';
+import { calculateOrderTotals, sumLineItems } from '../../shared/pricing';
 
 interface CartContextType {
   items: CartItem[];
@@ -25,18 +27,9 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('royals_cart_items');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState<CartItem[]>(() => readJson<CartItem[]>(STORAGE_KEYS.cartItems, []));
 
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(() => {
-    return localStorage.getItem('royals_applied_coupon') || null;
-  });
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(() => readStorage(STORAGE_KEYS.appliedCoupon));
 
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
@@ -44,15 +37,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Persist items to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem('royals_cart_items', JSON.stringify(items));
-    } catch (err) {
-      console.error('Failed to persist cart:', err);
-    }
+    writeJson(STORAGE_KEYS.cartItems, items);
   }, [items]);
 
-  // Compute Subtotal
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = sumLineItems(items);
 
   // Validate coupon when subtotal changes
   useEffect(() => {
@@ -66,7 +54,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setAppliedCoupon(null);
           setCouponDiscount(0);
           setCouponMessage(null);
-          localStorage.removeItem('royals_applied_coupon');
+          removeStorage(STORAGE_KEYS.appliedCoupon);
         });
     } else {
       setCouponDiscount(0);
@@ -74,13 +62,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [subtotal, appliedCoupon]);
 
-  const discountAmount = couponDiscount;
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  // GST 12% on ethnic apparel
-  const gstAmount = subtotal > 0 ? Math.round(taxableAmount * 0.12) : 0;
-  // Free delivery above 5000
-  const deliveryFee = subtotal > 0 ? (taxableAmount >= 5000 ? 0 : 250) : 0;
-  const grandTotal = subtotal > 0 ? taxableAmount + gstAmount + deliveryFee : 0;
+  const { discountAmount, gstAmount, deliveryFee, grandTotal } = calculateOrderTotals(subtotal, couponDiscount);
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -138,7 +120,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAppliedCoupon(res.code);
       setCouponDiscount(res.discountAmount);
       setCouponMessage(res.message);
-      localStorage.setItem('royals_applied_coupon', res.code);
+      writeStorage(STORAGE_KEYS.appliedCoupon, res.code);
       return true;
     } catch (err: any) {
       setCouponMessage(err.message || 'Invalid coupon code');
@@ -150,13 +132,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAppliedCoupon(null);
     setCouponDiscount(0);
     setCouponMessage(null);
-    localStorage.removeItem('royals_applied_coupon');
+    removeStorage(STORAGE_KEYS.appliedCoupon);
   };
 
   const clearCart = () => {
     setItems([]);
     removeCoupon();
-    localStorage.removeItem('royals_cart_items');
+    removeStorage(STORAGE_KEYS.cartItems);
   };
 
   return (

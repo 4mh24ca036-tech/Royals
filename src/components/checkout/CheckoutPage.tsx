@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Order } from '../../types';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, downloadOrderSummaryPdf } from '../../services/pdfGenerator';
+import { formatINR } from '../../utils/format';
 
 interface CheckoutPageProps {
   onBackToShopping: () => void;
@@ -118,8 +119,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // ORDER CONFIRMED VIEW
   if (step === 'success' && createdOrder) {
     const whatsappUrl = `https://wa.me/918000461784?text=${encodeURIComponent(
-      `Hello ROYALS Atelier, my order #${createdOrder.order_number} for ₹${createdOrder.grand_total.toLocaleString(
-        'en-IN'
+      `Hello ROYALS Atelier, my order #${createdOrder.order_number} for ${formatINR(
+        createdOrder.grand_total
       )} has been placed. Please share custom fitting and dispatch updates.`
     )}`;
 
@@ -660,7 +661,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     className="px-8 py-3 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-[0.2em] font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
                   >
                     <Lock className="w-3.5 h-3.5 text-[#C5A059]" />
-                    <span>{isSubmitting ? 'Authenticating Order...' : `Pay ₹${grandTotal.toLocaleString('en-IN')}`}</span>
+                    <span>{isSubmitting ? 'Authenticating Order...' : `Pay ${formatINR(grandTotal)}`}</span>
                   </button>
                 </div>
 
@@ -686,7 +687,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <div className="flex-1 min-w-0">
                       <p className="text-xs uppercase tracking-wider font-medium text-[#1A1A1A] truncate">{item.title}</p>
                       <p className="text-[11px] text-[#6B6658] font-light">Size: {item.size} • Qty: {item.quantity}</p>
-                      <p className="text-xs font-medium text-[#1A1A1A] mt-0.5">₹{(item.price * item.quantity).toLocaleString('en-IN')}</p>
+                      <p className="text-xs font-medium text-[#1A1A1A] mt-0.5">{formatINR((item.price * item.quantity))}</p>
                     </div>
                   </div>
                 ))}
@@ -696,19 +697,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               <div className="space-y-2 text-xs text-[#6B6658] pt-4 border-t border-[#E5E1D8]">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span>₹{subtotal.toLocaleString('en-IN')}</span>
+                  <span>{formatINR(subtotal)}</span>
                 </div>
 
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-[#C5A059] font-medium">
                     <span>Discount ({appliedCoupon})</span>
-                    <span>- ₹{discountAmount.toLocaleString('en-IN')}</span>
+                    <span>- {formatINR(discountAmount)}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between">
                   <span>12% GST (Inclusive)</span>
-                  <span>₹{gstAmount.toLocaleString('en-IN')}</span>
+                  <span>{formatINR(gstAmount)}</span>
                 </div>
 
                 <div className="flex justify-between">
@@ -718,7 +719,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                 <div className="flex justify-between text-xs uppercase tracking-wider font-semibold text-[#1A1A1A] pt-3 border-t border-[#E5E1D8]">
                   <span>Total Amount</span>
-                  <span className="text-sm">₹{grandTotal.toLocaleString('en-IN')}</span>
+                  <span className="text-sm">{formatINR(grandTotal)}</span>
                 </div>
               </div>
 

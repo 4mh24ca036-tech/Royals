@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AdminUser } from '../types';
 import { api } from '../services/api';
+import { STORAGE_KEYS, readJson, readStorage, removeStorage, writeJson, writeStorage } from '../utils/storage';
 
 interface AdminAuthContextType {
   admin: AdminUser | null;
@@ -13,19 +14,12 @@ interface AdminAuthContextType {
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [admin, setAdmin] = useState<AdminUser | null>(() => {
-    try {
-      const saved = localStorage.getItem('royals_admin_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [admin, setAdmin] = useState<AdminUser | null>(() => readJson<AdminUser | null>(STORAGE_KEYS.adminUser, null));
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('royals_admin_token');
+    const token = readStorage(STORAGE_KEYS.adminToken);
     if (!token) {
       setAdmin(null);
       setIsLoading(false);
@@ -38,8 +32,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsLoading(false);
       })
       .catch(() => {
-        localStorage.removeItem('royals_admin_token');
-        localStorage.removeItem('royals_admin_user');
+        removeStorage(STORAGE_KEYS.adminToken, STORAGE_KEYS.adminUser);
         setAdmin(null);
         setIsLoading(false);
       });
@@ -47,14 +40,13 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const login = async (credentials: { username: string; password: string }) => {
     const res = await api.adminLogin(credentials);
-    localStorage.setItem('royals_admin_token', res.token);
-    localStorage.setItem('royals_admin_user', JSON.stringify(res.admin));
+    writeStorage(STORAGE_KEYS.adminToken, res.token);
+    writeJson(STORAGE_KEYS.adminUser, res.admin);
     setAdmin(res.admin);
   };
 
   const logout = () => {
-    localStorage.removeItem('royals_admin_token');
-    localStorage.removeItem('royals_admin_user');
+    removeStorage(STORAGE_KEYS.adminToken, STORAGE_KEYS.adminUser);
     setAdmin(null);
   };
 

@@ -2,38 +2,10 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
 import { generateAdminToken, authenticateAdmin } from '../auth.js';
+import { queryAll, generateId } from '../utils/db.js';
+import { formatDate, formatTime } from '../utils/datetime.js';
 
 const router = Router();
-
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
-
-function formatDate(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = monthNames[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-}
-
-function formatTime(date: Date): string {
-  let hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-}
 
 // ADMIN LOGIN
 router.post('/login', async (req: Request, res: Response) => {
@@ -566,7 +538,7 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
       return res.status(400).json({ error: 'Title, category, and price are required' });
     }
 
-    const id = `prod_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const id = generateId('prod');
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + `-${Date.now().toString().slice(-4)}`;
     const now = new Date().toISOString();
 

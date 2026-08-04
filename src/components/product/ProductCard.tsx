@@ -3,6 +3,7 @@ import { Heart, Eye, Sparkles, ShoppingBag } from 'lucide-react';
 import { Product } from '../../types';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
+import { formatINR } from '../../utils/format';
 
 interface ProductCardProps {
   product: Product;
@@ -131,11 +132,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-[13px] font-medium text-[#1A1A1A]">
-                ₹{effectivePrice.toLocaleString('en-IN')}
+                {formatINR(effectivePrice)}
               </span>
               {hasDiscount && (
                 <span className="text-[11px] text-[#8E8A81] line-through">
-                  ₹{product.price.toLocaleString('en-IN')}
+                  {formatINR(product.price)}
                 </span>
               )}
             </div>

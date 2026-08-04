@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Sparkles, ArrowRight } from 'lucide-react';
 import { Product } from '../../types';
+import { formatINR } from '../../utils/format';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -130,7 +131,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         </p>
                         <p className="text-[11px] text-[#6B6658] font-light truncate">{p.category_name} • {p.fabric}</p>
                         <p className="text-xs font-medium text-[#1A1A1A] mt-0.5">
-                          ₹{(p.discount_price || p.price).toLocaleString('en-IN')}
+                          {formatINR((p.discount_price || p.price))}
                         </p>
                       </div>
                     </div>

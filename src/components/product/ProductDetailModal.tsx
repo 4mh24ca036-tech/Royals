@@ -19,6 +19,7 @@ import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { api } from '../../services/api';
 import { SizeGuideModal } from './SizeGuideModal';
+import { formatINR } from '../../utils/format';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -183,11 +184,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <div>
                       <div className="flex items-baseline gap-3">
                         <span className="text-2xl sm:text-3xl font-serif font-light text-[#1A1A1A]">
-                          ₹{effectivePrice.toLocaleString('en-IN')}
+                          {formatINR(effectivePrice)}
                         </span>
                         {hasDiscount && (
                           <span className="text-base text-[#8E8A81] line-through">
-                            ₹{product.price.toLocaleString('en-IN')}
+                            {formatINR(product.price)}
                           </span>
                         )}
                       </div>

@@ -2,21 +2,11 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
 import { generateUserToken, authenticateUser } from '../auth.js';
+import { queryAll, generateId } from '../utils/db.js';
+import { calculateCouponDiscount } from '../../shared/pricing.js';
+import { formatINR } from '../../shared/format.js';
 
 const router = Router();
-
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
 
 // CUSTOMER REGISTER
 router.post('/register', async (req: Request, res: Response) => {
@@ -35,7 +25,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const salt = bcrypt.genSaltSync(10);
     const passwordHash = bcrypt.hashSync(password, salt);
-    const id = `usr_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const id = generateId('usr');
     const now = new Date().toISOString();
 
     db.run(
@@ -231,19 +221,11 @@ router.post('/coupons/validate', async (req: Request, res: Response) => {
 
     if (subtotalNum < coupon.min_spend) {
       return res.status(400).json({
-        error: `Coupon ${coupon.code} requires a minimum purchase of ₹${coupon.min_spend.toLocaleString('en-IN')}`
+        error: `Coupon ${coupon.code} requires a minimum purchase of ${formatINR(coupon.min_spend)}`
       });
     }
 
-    let discountAmount = 0;
-    if (coupon.discount_type === 'percentage') {
-      discountAmount = (subtotalNum * coupon.discount_value) / 100;
-      if (coupon.max_discount && discountAmount > coupon.max_discount) {
-        discountAmount = coupon.max_discount;
-      }
-    } else {
-      discountAmount = Math.min(subtotalNum, coupon.discount_value);
-    }
+    const discountAmount = calculateCouponDiscount(coupon, subtotalNum);
 
     res.json({
       valid: true,
@@ -251,7 +233,7 @@ router.post('/coupons/validate', async (req: Request, res: Response) => {
       discountType: coupon.discount_type,
       discountValue: coupon.discount_value,
       discountAmount: Math.round(discountAmount),
-      message: `Coupon ${coupon.code} applied! Saved ₹${Math.round(discountAmount).toLocaleString('en-IN')}`
+      message: `Coupon ${coupon.code} applied! Saved ${formatINR(Math.round(discountAmount))}`
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
