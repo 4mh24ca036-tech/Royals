@@ -19,6 +19,7 @@ import {
 import { api } from '../../services/api';
 import { TrackingData, Order } from '../../types';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, downloadOrderSummaryPdf } from '../../services/pdfGenerator';
+import { formatINR, formatDateTime, formatDate } from '../../utils/format';
 
 interface OrderTrackingViewProps {
   initialQuery?: string;
@@ -133,7 +134,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                   Order #{order.order_number}
                 </h3>
                 <p className="text-xs text-[#6B6658] font-light">
-                  Placed on {new Date(order.created_at).toLocaleDateString('en-GB')} • Insured Courier: {order.courier_name || 'Blue Dart Apex Luxury'}
+                  Placed on {formatDate(order.created_at)} • Insured Courier: {order.courier_name || 'Blue Dart Apex Luxury'}
                 </p>
               </div>
 
@@ -157,7 +158,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                   const isDone = step.isCompleted ?? step.completed ?? false;
                   const isCurrent = step.isCurrent ?? false;
                   const title = step.label || step.title || step.status;
-                  const timeDisplay = step.date ? `${step.date}${step.time ? ' • ' + step.time : ''}` : (step.timestamp ? new Date(step.timestamp).toLocaleString('en-GB') : null);
+                  const timeDisplay = step.date ? `${step.date}${step.time ? ' • ' + step.time : ''}` : (step.timestamp ? formatDateTime(step.timestamp) : null);
                   const description = step.description || step.notes;
 
                   return (
@@ -222,7 +223,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
                       <p className="font-medium text-[#1A1A1A] uppercase tracking-wider">{item.product_title}</p>
                       <p className="text-[#6B6658] font-light text-[11px]">Size: {item.size} • Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-medium text-[#1A1A1A]">₹{item.total_price.toLocaleString('en-IN')}</span>
+                    <span className="font-medium text-[#1A1A1A]">{formatINR(item.total_price)}</span>
                   </div>
                 ))}
               </div>

@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Order } from '../../types';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, downloadOrderSummaryPdf } from '../../services/pdfGenerator';
+import { formatINR, formatDateTime, formatDate } from '../../utils/format';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -185,7 +186,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           </span>
                         </div>
                         <p className="text-xs text-[#6B6658] mt-0.5 font-light">
-                          Placed on {new Date(o.created_at).toLocaleDateString('en-GB')} • Total: <strong className="font-medium text-[#1A1A1A]">₹{o.grand_total.toLocaleString('en-IN')}</strong>
+                          Placed on {formatDate(o.created_at)} • Total: <strong className="font-medium text-[#1A1A1A]">{formatINR(o.grand_total)}</strong>
                         </p>
                       </div>
 
@@ -206,7 +207,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       {o.items.map((it, idx) => (
                         <div key={idx} className="flex items-center justify-between text-xs text-[#6B6658] font-light">
                           <span>{it.quantity}x {it.product_title} ({it.size})</span>
-                          <span className="font-medium text-[#1A1A1A]">₹{it.total_price.toLocaleString('en-IN')}</span>
+                          <span className="font-medium text-[#1A1A1A]">{formatINR(it.total_price)}</span>
                         </div>
                       ))}
                     </div>
@@ -383,7 +384,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       <div className="flex items-center justify-between">
                         <h5 className="text-xs uppercase tracking-wider font-medium text-[#1A1A1A]">{n.title}</h5>
                         <span className="text-[10px] text-[#8E8A81]">
-                          {new Date(n.created_at).toLocaleString('en-GB')}
+                          {formatDateTime(n.created_at)}
                         </span>
                       </div>
                       <p className="text-xs text-[#6B6658] leading-relaxed font-light">{n.message}</p>

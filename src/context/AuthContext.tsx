@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Address, Notification } from '../types';
 import { api } from '../services/api';
+import { STORAGE_KEYS, readStorage, removeStorage, writeStorage } from '../utils/storage';
 
 interface AuthContextType {
   user: User | null;
@@ -33,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
   const refreshProfile = async () => {
-    const token = localStorage.getItem('royals_user_token');
+    const token = readStorage(STORAGE_KEYS.userToken);
     if (!token) {
       setUser(null);
       setAddresses([]);
@@ -49,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setNotifications(data.notifications);
     } catch (err) {
       console.error('Failed to load profile:', err);
-      localStorage.removeItem('royals_user_token');
+      removeStorage(STORAGE_KEYS.userToken);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -62,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (credentials: { email: string; password: string }) => {
     const res = await api.customerLogin(credentials);
-    localStorage.setItem('royals_user_token', res.token);
+    writeStorage(STORAGE_KEYS.userToken, res.token);
     setUser(res.user);
     await refreshProfile();
     setIsAuthModalOpen(false);
@@ -70,14 +71,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (data: { name: string; email: string; phone?: string; password: string }) => {
     const res = await api.customerRegister(data);
-    localStorage.setItem('royals_user_token', res.token);
+    writeStorage(STORAGE_KEYS.userToken, res.token);
     setUser(res.user);
     await refreshProfile();
     setIsAuthModalOpen(false);
   };
 
   const logout = () => {
-    localStorage.removeItem('royals_user_token');
+    removeStorage(STORAGE_KEYS.userToken);
     setUser(null);
     setAddresses([]);
     setNotifications([]);

@@ -1,21 +1,9 @@
 import { Router } from 'express';
 import { getDb, persistDb } from '../db.js';
+import { queryAll, generateId } from '../utils/db.js';
+import { formatProductRow } from '../utils/product.js';
 
 const router = Router();
-
-// Helper to convert db results to objects
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
 
 // GET all categories
 router.get('/categories', async (req, res) => {
@@ -99,13 +87,7 @@ router.get('/', async (req, res) => {
 
     const rows = queryAll(db, sql, params);
 
-    const formatted = rows.map((r: any) => ({
-      ...r,
-      sizes: JSON.parse(r.sizes_json || '[]'),
-      images: JSON.parse(r.images_json || '[]'),
-      is_featured: Boolean(r.is_featured),
-      is_new_arrival: Boolean(r.is_new_arrival)
-    }));
+    const formatted = rows.map((r: any) => formatProductRow(r));
 
     res.json(formatted);
   } catch (err: any) {
@@ -129,15 +111,7 @@ router.get('/:idOrSlug', async (req, res) => {
     const reviews = queryAll(db, 'SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC', [prod.id]);
     const inventory = queryAll(db, 'SELECT * FROM inventory WHERE product_id = ?', [prod.id]);
 
-    const formatted = {
-      ...prod,
-      sizes: JSON.parse(prod.sizes_json || '[]'),
-      images: JSON.parse(prod.images_json || '[]'),
-      is_featured: Boolean(prod.is_featured),
-      is_new_arrival: Boolean(prod.is_new_arrival),
-      reviews,
-      inventory
-    };
+    const formatted = formatProductRow(prod, { reviews, inventory });
 
     res.json(formatted);
   } catch (err: any) {
@@ -156,7 +130,7 @@ router.post('/:id/reviews', async (req, res) => {
       return res.status(400).json({ error: 'Missing required review fields' });
     }
 
-    const reviewId = `rev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const reviewId = generateId('rev');
     const createdAt = new Date().toISOString();
 
     db.run(

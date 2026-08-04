@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product } from '../types';
+import { STORAGE_KEYS, readJson, writeJson } from '../utils/storage';
 
 interface WishlistContextType {
   wishlist: Product[];
@@ -14,21 +15,10 @@ interface WishlistContextType {
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
 export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [wishlist, setWishlist] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem('royals_wishlist');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [wishlist, setWishlist] = useState<Product[]>(() => readJson<Product[]>(STORAGE_KEYS.wishlist, []));
 
   useEffect(() => {
-    try {
-      localStorage.setItem('royals_wishlist', JSON.stringify(wishlist));
-    } catch (err) {
-      console.error('Failed to save wishlist:', err);
-    }
+    writeJson(STORAGE_KEYS.wishlist, wishlist);
   }, [wishlist]);
 
   const wishlistIds = wishlist.map((p) => p.id);
