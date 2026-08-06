@@ -252,6 +252,7 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
 
     const validStatuses = [
       'Order Placed',
+      'Awaiting Payment Verification',
       'Payment Confirmed',
       'Preparing Order',
       'Packed',
@@ -279,6 +280,16 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     // Update order status in orders table
     let updateSql = 'UPDATE orders SET order_status = ?, updated_at = ?';
     const updateParams: any[] = [status, now.toISOString()];
+
+    if (status === 'Payment Confirmed' || status === 'Preparing Order') {
+      updateSql += ', payment_status = ?';
+      updateParams.push('PAID');
+      db.run('UPDATE payments SET status = ? WHERE order_id = ?', ['PAID', order.id]);
+    } else if (status === 'Cancelled') {
+      updateSql += ', payment_status = ?';
+      updateParams.push('CANCELLED');
+      db.run('UPDATE payments SET status = ? WHERE order_id = ?', ['CANCELLED', order.id]);
+    }
 
     if (courierName) {
       updateSql += ', courier_name = ?';
