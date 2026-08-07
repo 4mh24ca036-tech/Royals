@@ -107,7 +107,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 {/* Image */}
                 <div className="w-20 h-24 bg-[#F5F2ED] overflow-hidden shrink-0 border border-[#E5E1D8]">
                   <img
-                    src={item.image}
+                    src={item.image || '/images/catalog/royals-garment-01.jpeg'}
                     alt={item.title}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover object-top"

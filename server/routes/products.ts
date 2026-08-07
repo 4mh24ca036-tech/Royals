@@ -88,13 +88,13 @@ router.get('/', async (req, res) => {
         sql += ' ORDER BY rating DESC';
         break;
       case 'newest':
-        sql += ' ORDER BY created_at DESC';
+        sql += ' ORDER BY COALESCE(updated_at, created_at) DESC';
         break;
       case 'discount':
         sql += ' ORDER BY (price - COALESCE(discount_price, price)) DESC';
         break;
       default:
-        sql += ' ORDER BY is_featured DESC, created_at DESC';
+        sql += ' ORDER BY is_featured DESC, display_order ASC, created_at DESC';
     }
 
     const rows = queryAll(db, sql, params);

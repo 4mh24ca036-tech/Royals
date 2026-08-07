@@ -28,9 +28,21 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
 
-    const existing = queryAll(db, 'SELECT id FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
+    const existing = queryAll(db, 'SELECT * FROM users WHERE email = ? LIMIT 1', [email.toLowerCase()]);
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'An account with this email address already exists' });
+      // The storefront has a single atelier-membership entry point.  An
+      // existing patron can continue here without being sent to a second
+      // login screen, while their password is still verified server-side.
+      const user = existing[0];
+      if (!bcrypt.compareSync(password, user.password_hash)) {
+        return res.status(401).json({ error: 'This email is already registered. Please enter the password for this ROYALS account.' });
+      }
+      const token = generateUserToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+      return res.json({
+        token,
+        user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
+        existingAccount: true
+      });
     }
 
     const salt = bcrypt.genSaltSync(10);

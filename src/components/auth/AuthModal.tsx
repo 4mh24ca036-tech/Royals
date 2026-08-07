@@ -3,7 +3,7 @@ import { X, Lock, Mail, User as UserIcon, Phone, Sparkles, AlertCircle } from 'l
 import { useAuth } from '../../context/AuthContext';
 
 export const AuthModal: React.FC = () => {
-  const { isAuthModalOpen, setIsAuthModalOpen, authModalMode, setAuthModalMode, login, register } = useAuth();
+  const { isAuthModalOpen, setIsAuthModalOpen, register } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -11,6 +11,19 @@ export const AuthModal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExistingAccount, setIsExistingAccount] = useState(false);
+
+  // Reset form when modal opens
+  React.useEffect(() => {
+    if (isAuthModalOpen) {
+      setName('');
+      setEmail('');
+      setPhone('');
+      setPassword('');
+      setErrorMessage(null);
+      setIsExistingAccount(false);
+    }
+  }, [isAuthModalOpen]);
 
   if (!isAuthModalOpen) return null;
 
@@ -20,10 +33,11 @@ export const AuthModal: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      if (authModalMode === 'login') {
-        await login({ email, password });
-      } else {
-        await register({ name, email, phone, password });
+      const result = await register({ name, email, phone, password });
+      // If backend returns existingAccount flag, show success message for existing user
+      if (result && result.existingAccount) {
+        setIsExistingAccount(true);
+        setErrorMessage(null);
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication failed');
@@ -51,12 +65,10 @@ export const AuthModal: React.FC = () => {
             <Sparkles className="w-2.5 h-2.5" />
           </div>
           <h3 className="text-2xl font-serif italic font-light text-[#1A1A1A] tracking-wide mt-1">
-            {authModalMode === 'login' ? 'Patron Sign In' : 'Join ROYALS Atelier'}
+            Join ROYALS Atelier
           </h3>
           <p className="text-[11px] text-[#6B6658] mt-1 font-light">
-            {authModalMode === 'login'
-              ? 'Access saved couture measurements & order dossier'
-              : 'Create an account for bespoke fitting updates and private previews'}
+            Create your account for bespoke fitting updates, private previews, and your personal order dossier.
           </p>
         </div>
 
@@ -69,8 +81,7 @@ export const AuthModal: React.FC = () => {
             </div>
           )}
 
-          {authModalMode === 'register' && (
-            <div>
+          <div>
               <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Full Name</label>
               <div className="relative">
                 <UserIcon className="w-4 h-4 text-[#8E8A81] absolute left-3 top-3" />
@@ -84,7 +95,6 @@ export const AuthModal: React.FC = () => {
                 />
               </div>
             </div>
-          )}
 
           <div>
             <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Email Address</label>
@@ -101,8 +111,7 @@ export const AuthModal: React.FC = () => {
             </div>
           </div>
 
-          {authModalMode === 'register' && (
-            <div>
+          <div>
               <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Phone Number (Optional)</label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-[#8E8A81] absolute left-3 top-3" />
@@ -115,7 +124,6 @@ export const AuthModal: React.FC = () => {
                 />
               </div>
             </div>
-          )}
 
           <div>
             <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Password</label>
@@ -132,33 +140,23 @@ export const AuthModal: React.FC = () => {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-3 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-[0.2em] font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 mt-2"
-          >
-            {isSubmitting
-              ? 'Authenticating...'
-              : authModalMode === 'login'
-              ? 'Sign In to Account'
-              : 'Create Patron Profile'}
-          </button>
-
-          {/* Toggle Mode */}
-          <div className="text-center pt-2">
+          {isExistingAccount ? (
+            <div className="p-3 bg-[#F5F2ED] border border-[#C5A059] text-center">
+              <p className="text-xs text-[#1A1A1A] font-medium">Welcome back, {name}!</p>
+              <p className="text-[11px] text-[#6B6658] mt-1">Your account has been authenticated successfully.</p>
+            </div>
+          ) : (
             <button
-              type="button"
-              onClick={() => {
-                setErrorMessage(null);
-                setAuthModalMode(authModalMode === 'login' ? 'register' : 'login');
-              }}
-              className="text-xs text-[#8E8A81] hover:text-[#C5A059] font-light underline cursor-pointer"
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-3 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-[0.2em] font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 mt-2"
             >
-              {authModalMode === 'login'
-                ? "Don't have an account? Join ROYALS Atelier"
-                : 'Already a patron? Sign in here'}
+              {isSubmitting ? 'Authenticating...' : 'Join ROYALS Atelier'}
             </button>
-          </div>
+          )}
+          <p className="text-center text-[11px] text-[#8E8A81] font-light pt-1">
+            New customers create an account. Existing customers are automatically authenticated.
+          </p>
         </form>
 
       </div>

@@ -135,15 +135,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodTitle, setProdTitle] = useState('');
   const [prodCategory, setProdCategory] = useState(categories[0]?.id || 'cat_bridal_lehengas');
-  const [prodPrice, setProdPrice] = useState<number>(45000);
-  const [prodDiscountPrice, setProdDiscountPrice] = useState<number | null>(39999);
+  const [prodPrice, setProdPrice] = useState<number>(699);
+  const [prodDiscountPrice, setProdDiscountPrice] = useState<number | null>(null);
   const [prodFabric, setProdFabric] = useState('Pure Handloom Raw Silk & Chanderi');
   const [prodEmbroidery, setProdEmbroidery] = useState('Jaipur Heritage Hand Zardozi & Mukaish');
   const [prodColor, setProdColor] = useState('Royal Imperial Ruby');
   const [prodSizes, setProdSizes] = useState('S, M, L, XL, XXL, Custom Fit');
   const [prodStock, setProdStock] = useState<number>(12);
   const [prodDesc, setProdDesc] = useState('Exquisite artisan hand-stitched royal kurta set finished with antique gold zari work and silk linings.');
-  const [prodImages, setProdImages] = useState('https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85');
+  const [prodImages, setProdImages] = useState<string[]>([]);
+  const [prodImageUrl, setProdImageUrl] = useState('');
+  const [prodFeatured, setProdFeatured] = useState(false);
+  const [prodNewArrival, setProdNewArrival] = useState(false);
 
   // Coupon modal state
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
@@ -395,18 +398,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         fabric: prodFabric,
         embroidery: prodEmbroidery,
         color: prodColor,
-        sizes: prodSizes.split(',').map((s) => s.trim()),
-        images: prodImages.split(',').map((s) => s.trim()),
+        sizes: prodSizes.split(',').map((s) => s.trim()).filter(Boolean),
         description: prodDesc,
         care_instructions: 'Dry Clean Only. Preserve in heirloom muslin cloth with royal cedar blocks.',
-        is_featured: 1,
-        is_new_arrival: 1
+        is_featured: prodFeatured,
+        is_new_arrival: prodNewArrival
       };
 
       if (editingProductId) {
         await api.updateProduct(editingProductId, productPayload);
+        await api.updateProductImages(editingProductId, prodImages);
       } else {
-        await api.createProduct(productPayload);
+        await api.createProduct({ ...productPayload, images: prodImages });
       }
 
       setIsAddingProduct(false);
@@ -430,8 +433,67 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setProdSizes(prod.sizes ? prod.sizes.join(', ') : 'S, M, L, XL');
     setProdStock(prod.stock);
     setProdDesc(prod.description);
-    setProdImages(prod.images ? prod.images.join(', ') : '');
+    setProdImages(prod.images || []);
+    setProdImageUrl('');
+    setProdFeatured(Boolean(prod.is_featured));
+    setProdNewArrival(Boolean(prod.is_new_arrival));
     setIsAddingProduct(true);
+  };
+
+  const resetProductForm = () => {
+    setEditingProductId(null);
+    setProdTitle('');
+    setProdCategory(categories[0]?.id || 'cat_womens_kurtas');
+    setProdPrice(699);
+    setProdDiscountPrice(null);
+    setProdFabric('Comfortable blended cotton');
+    setProdEmbroidery('Artisan thread embroidery');
+    setProdColor('Heritage Classic');
+    setProdSizes('S, M, L, XL, XXL');
+    setProdStock(10);
+    setProdDesc('A handcrafted ROYALS Jaipur boutique creation.');
+    setProdImages([]);
+    setProdImageUrl('');
+    setProdFeatured(false);
+    setProdNewArrival(false);
+  };
+
+  const addImageUrl = () => {
+    const imageUrl = prodImageUrl.trim();
+    if (imageUrl && !prodImages.includes(imageUrl)) {
+      setProdImages((images) => [...images, imageUrl]);
+      setProdImageUrl('');
+    }
+  };
+
+  const handleProductImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files: File[] = event.target.files ? Array.from(event.target.files) : [];
+    if (!files.length) return;
+    const invalid = files.find((file) => !file.type.startsWith('image/') || file.size > 3 * 1024 * 1024);
+    if (invalid) {
+      alert('Please choose image files smaller than 3 MB each.');
+      event.target.value = '';
+      return;
+    }
+
+    const dataUrls = await Promise.all(files.map((file) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+      reader.readAsDataURL(file);
+    })));
+    setProdImages((images) => [...images, ...dataUrls]);
+    event.target.value = '';
+  };
+
+  const moveProductImage = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= prodImages.length) return;
+    setProdImages((images) => {
+      const next = [...images];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
   };
 
   const handleDeleteProduct = async (id: string) => {
@@ -1021,11 +1083,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <button
                       onClick={() => {
-                        setEditingProductId(null);
-                        setProdTitle('');
-                        setProdPrice(45000);
-                        setProdDiscountPrice(39999);
-                        setProdStock(10);
+                        resetProductForm();
                         setIsAddingProduct(true);
                         setActiveTab('products');
                       }}
@@ -1300,11 +1358,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                       <button
                         onClick={() => {
-                          setEditingProductId(null);
-                          setProdTitle('');
-                          setProdPrice(45000);
-                          setProdDiscountPrice(39999);
-                          setProdStock(10);
+                          resetProductForm();
                           setIsAddingProduct(true);
                         }}
                         className="px-4 py-2 bg-[#141414] hover:bg-[#C5A880] text-white hover:text-black text-xs uppercase tracking-wider font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
@@ -1322,7 +1376,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <div className="relative aspect-4/3 bg-gray-100 overflow-hidden">
                           <img
                             referrerPolicy="no-referrer"
-                            src={p.images?.[0] || 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85'}
+                            src={p.images?.[0] || '/images/catalog/royals-garment-01.jpeg'}
                             alt={p.title}
                             className="w-full h-full object-cover"
                           />
@@ -1824,7 +1878,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <div className="flex items-center gap-3">
                         <img
                           referrerPolicy="no-referrer"
-                          src={item.product_image || 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85'}
+                          src={item.product_image || '/images/catalog/royals-garment-01.jpeg'}
                           alt={item.product_title}
                           className="w-12 h-12 object-cover rounded-xl border border-[#E8DFD8]"
                         />
@@ -2124,14 +2178,54 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-[#3A3632] mb-1">Image URLs (comma separated)</label>
+                <label className="block font-semibold text-[#3A3632] mb-1">Available Colors (comma separated)</label>
                 <input
                   type="text"
-                  required
-                  value={prodImages}
-                  onChange={(e) => setProdImages(e.target.value)}
+                  value={prodColor}
+                  onChange={(e) => setProdColor(e.target.value)}
+                  placeholder="e.g. Teal, Mustard"
                   className="w-full p-2.5 rounded-xl border border-[#D8CCC2] bg-white text-[#141414]"
                 />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="block font-semibold text-[#3A3632]">Product Images</label>
+                  <label className="px-3 py-2 rounded-xl border border-[#D8CCC2] bg-white text-[#141414] cursor-pointer hover:border-[#C5A880] transition-colors">
+                    Upload Images
+                    <input type="file" accept="image/*" multiple onChange={handleProductImageUpload} className="hidden" />
+                  </label>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={prodImageUrl}
+                    onChange={(e) => setProdImageUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                    placeholder="Or add an image URL"
+                    className="min-w-0 flex-1 p-2.5 rounded-xl border border-[#D8CCC2] bg-white text-[#141414]"
+                  />
+                  <button type="button" onClick={addImageUrl} className="px-3 py-2 bg-[#141414] text-white rounded-xl font-semibold">Add</button>
+                </div>
+
+                {prodImages.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {prodImages.map((image, index) => (
+                      <div key={`${image.slice(0, 40)}-${index}`} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-[#D8CCC2] bg-white">
+                        <img src={image} alt={`Product image ${index + 1}`} className="w-full h-full object-cover object-top" />
+                        {index === 0 && <span className="absolute top-2 left-2 px-2 py-1 rounded bg-[#141414] text-white text-[9px] font-bold">Cover</span>}
+                        <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1">
+                          <button type="button" disabled={index === 0} onClick={() => moveProductImage(index, -1)} className="flex-1 py-1 bg-white/95 text-[#141414] text-xs rounded disabled:opacity-40">←</button>
+                          <button type="button" disabled={index === prodImages.length - 1} onClick={() => moveProductImage(index, 1)} className="flex-1 py-1 bg-white/95 text-[#141414] text-xs rounded disabled:opacity-40">→</button>
+                          <button type="button" onClick={() => setProdImages((images) => images.filter((_, imageIndex) => imageIndex !== index))} className="flex-1 py-1 bg-red-700 text-white text-xs rounded">×</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-3 rounded-xl border border-dashed border-[#D8CCC2] text-[#706B65]">Upload or add images. The first image becomes the customer-facing cover.</p>
+                )}
               </div>
 
               <div>
@@ -2142,6 +2236,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   onChange={(e) => setProdDesc(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-[#D8CCC2] bg-white text-[#141414]"
                 />
+              </div>
+
+              <div className="flex flex-wrap gap-4">
+                <label className="inline-flex items-center gap-2 cursor-pointer text-[#3A3632]">
+                  <input type="checkbox" checked={prodFeatured} onChange={(e) => setProdFeatured(e.target.checked)} />
+                  Featured product
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer text-[#3A3632]">
+                  <input type="checkbox" checked={prodNewArrival} onChange={(e) => setProdNewArrival(e.target.checked)} />
+                  New arrival
+                </label>
               </div>
 
               <button

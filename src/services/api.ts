@@ -210,6 +210,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(productData)
     }),
+  updateProductImages: (id: string, images: string[]) =>
+    adminRequest<{ message: string; images: string[] }>(`/admin/products/${id}/images`, {
+      method: 'PATCH',
+      body: JSON.stringify({ images })
+    }),
   deleteProduct: (id: string) =>
     adminRequest<{ message: string }>(`/admin/products/${id}`, {
       method: 'DELETE'

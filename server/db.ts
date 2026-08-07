@@ -107,7 +107,9 @@ function initializeSchema(db: Database) {
       review_count INTEGER DEFAULT 0,
       is_featured INTEGER DEFAULT 0,
       is_new_arrival INTEGER DEFAULT 0,
-      created_at TEXT NOT NULL
+      display_order INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS reviews (
@@ -183,6 +185,7 @@ function initializeSchema(db: Database) {
       product_id TEXT NOT NULL,
       product_title TEXT NOT NULL,
       product_image TEXT NOT NULL,
+      product_description TEXT,
       size TEXT NOT NULL,
       color TEXT NOT NULL,
       quantity INTEGER NOT NULL,
@@ -245,6 +248,21 @@ function initializeSchema(db: Database) {
       last_restocked_at TEXT
     );
   `);
+
+  // Lightweight, idempotent migration for databases created before catalog
+  // management gained ordering and edit timestamps.
+  const productColumns = db.exec('PRAGMA table_info(products)')[0]?.values.map((column: any[]) => column[1]) || [];
+  if (!productColumns.includes('display_order')) {
+    db.run('ALTER TABLE products ADD COLUMN display_order INTEGER DEFAULT 0');
+  }
+  if (!productColumns.includes('updated_at')) {
+    db.run('ALTER TABLE products ADD COLUMN updated_at TEXT');
+  }
+
+  const orderItemColumns = db.exec('PRAGMA table_info(order_items)')[0]?.values.map((column: any[]) => column[1]) || [];
+  if (!orderItemColumns.includes('product_description')) {
+    db.run('ALTER TABLE order_items ADD COLUMN product_description TEXT');
+  }
 }
 
 function seedInitialData(db: Database) {
@@ -607,6 +625,64 @@ function seedInitialData(db: Database) {
         [`rev_${prod.id}_2`, prod.id, 'Rohit & Radhika Mehra', 5, 'Ordered for our Jaipur destination wedding. Delivered right on schedule with custom sizing precision. Outstanding concierge assistance via WhatsApp.', 1, '2026-08-02T10:15:00.000Z']
       );
     }
+  }
+
+  // The supplied boutique photography is catalog data, not UI data. Each image
+  // is associated with a regular database product so the admin remains the
+  // sole place to manage its price, description, stock, badges, and imagery.
+  const suppliedCatalog = [
+    ['Teal Maroon Heritage Kurta Set', 'Teal & Maroon', 'Resham accent work', 'royals-garment-01.jpeg'],
+    ['Ivory Floral Embroidered Anarkali Set', 'Ivory & Rose', 'Floral thread embroidery', 'royals-garment-02.jpeg'],
+    ['Olive Rose Garden Kurta Set', 'Olive & Pink', 'Floral thread embroidery', 'royals-garment-03.jpeg'],
+    ['Teal Mustard Dupatta Kurta Set', 'Teal & Mustard', 'Geometric motif embroidery', 'royals-garment-04.jpeg'],
+    ['Forest Green Mirror Work Kurta', 'Forest Green', 'Mirror and block-print yoke', 'royals-garment-05.jpeg'],
+    ['Black Maroon Printed Kurta Set', 'Black & Maroon', 'Printed border detailing', 'royals-garment-06.jpeg'],
+    ['Magenta Floral Dupatta Kurta Set', 'Magenta', 'All-over floral print', 'royals-garment-07.jpeg'],
+    ['Wine Ajrakh Dupatta Kurta Set', 'Wine', 'Ajrakh-inspired yoke and dupatta', 'royals-garment-08.jpeg'],
+    ['Rust Brown Embroidered Kurta Set', 'Rust Brown', 'Mirror and leaf embroidery', 'royals-garment-09.jpeg'],
+    ['Mustard Teal Printed Kurta Set', 'Teal & Mustard', 'Paisley print', 'royals-garment-10.jpeg'],
+    ['Plum Diamond Motif Kurta Set', 'Plum', 'Diamond thread embroidery', 'royals-garment-11.jpeg'],
+    ['Crimson Black Dupatta Kurta Set', 'Crimson & Black', 'Contrast border print', 'royals-garment-12.jpeg'],
+    ['Navy Floral Tiered Kurta', 'Navy Blue', 'Floral print', 'royals-garment-13.jpeg'],
+    ['Midnight Floral Kurta Set', 'Midnight Blue', 'Floral yoke and border embroidery', 'royals-garment-14.jpeg'],
+    ['Black Mustard Block Print Kurta Set', 'Black & Mustard', 'Hand block print', 'royals-garment-15.jpeg'],
+    ['Olive Rust Yoke Kurta Set', 'Olive & Rust', 'Geometric yoke embroidery', 'royals-garment-16.jpeg'],
+    ['Ivory Garden Embroidered Anarkali', 'Ivory & Berry', 'Floral embroidery', 'royals-garment-17.jpeg'],
+    ['Ivory Garden Embroidered Anarkali Detail', 'Ivory & Berry', 'Floral embroidery', 'royals-garment-18.jpeg'],
+    ['White Multi-Floral Kurta Set', 'White, Pink & Mustard', 'Floral applique work', 'royals-garment-19.jpeg'],
+    ['Navy Mustard Border Kurta Set', 'Navy & Mustard', 'Embroidered neckline', 'royals-garment-20.jpeg'],
+    ['Turquoise Maroon Kurta Set', 'Turquoise & Maroon', 'Sun motif embroidery', 'royals-garment-21.jpeg']
+  ];
+  const suppliedNow = new Date().toISOString();
+  suppliedCatalog.forEach(([title, color, embroidery, image], index) => {
+    const id = `prod_boutique_${String(index + 1).padStart(2, '0')}`;
+    db.run(
+      `INSERT OR IGNORE INTO products (
+        id, title, slug, category_id, category_name, price, discount_price, stock, fabric, embroidery, color,
+        sizes_json, description, care_instructions, images_json, rating, review_count, is_featured, is_new_arrival,
+        display_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        id, title, `boutique-${index + 1}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`,
+        'cat_womens_kurtas', "Designer Women's Kurta Sets", 599 + ((index % 5) * 100), null, 10,
+        'Comfortable blended cotton', embroidery, color, JSON.stringify(['S', 'M', 'L', 'XL', 'XXL']),
+        `${title}, selected for the ROYALS Jaipur boutique collection.`, 'Gentle hand wash or dry clean as preferred.',
+        JSON.stringify([`/images/catalog/${image}`]), 4.8, 0, index < 8 ? 1 : 0, index < 6 ? 1 : 0,
+        100 + index, suppliedNow, suppliedNow
+      ]
+    );
+  });
+
+  // Run only once for existing databases. It preserves all products while
+  // bringing the initial catalogue price band to the requested ₹500–₹1000.
+  db.run('CREATE TABLE IF NOT EXISTS app_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const priceMigration = db.exec("SELECT id FROM app_migrations WHERE id = 'catalog_price_band_20260807'");
+  if (!priceMigration[0]?.values.length) {
+    const existingProducts = db.exec('SELECT id FROM products ORDER BY display_order ASC, created_at ASC')[0]?.values || [];
+    existingProducts.forEach((row: any[], index: number) => {
+      db.run('UPDATE products SET price = ?, discount_price = NULL, updated_at = ? WHERE id = ?', [500 + ((index % 6) * 100), suppliedNow, row[0]]);
+    });
+    db.run("INSERT INTO app_migrations (id, applied_at) VALUES ('catalog_price_band_20260807', ?)", [suppliedNow]);
   }
 
   // Check Coupons

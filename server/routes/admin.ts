@@ -35,6 +35,29 @@ function formatTime(date: Date): string {
   return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
 }
 
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function buildSlug(title: string) {
+  return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function syncInventory(db: any, productId: string, sizes: string[], stock: number, timestamp: string) {
+  db.run('DELETE FROM inventory WHERE product_id = ?', [productId]);
+  sizes.forEach((size, index) => {
+    db.run(
+      `INSERT INTO inventory (id, product_id, sku, size, stock_quantity, low_stock_threshold, last_restocked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      [`inv_${productId}_${index}`, productId, `RYL-${productId.slice(-6).toUpperCase()}-${index + 1}`, size, stock, 3, timestamp]
+    );
+  });
+}
+
 // ADMIN LOGIN
 router.post('/login', async (req: Request, res: Response) => {
   try {
@@ -575,20 +598,27 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
       is_new_arrival
     } = req.body;
 
-    if (!title || !category_id || !price) {
+    if (!title?.trim() || !category_id || price === undefined || Number(price) <= 0) {
       return res.status(400).json({ error: 'Title, category, and price are required' });
     }
 
+    const sizeList = asStringList(sizes);
+    const imageList = asStringList(images);
+    if (sizeList.length === 0) {
+      return res.status(400).json({ error: 'At least one available size is required' });
+    }
+
     const id = `prod_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + `-${Date.now().toString().slice(-4)}`;
+    const slug = `${buildSlug(title)}-${Date.now().toString().slice(-4)}`;
     const now = new Date().toISOString();
+    const displayOrder = Number(queryAll(db, 'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM products')[0]?.next_order || 1);
 
     db.run(
       `INSERT INTO products (
         id, title, slug, category_id, category_name, price, discount_price, stock, fabric,
         embroidery, color, sizes_json, description, care_instructions, images_json,
-        rating, review_count, is_featured, is_new_arrival, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        rating, review_count, is_featured, is_new_arrival, display_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         id,
         title,
@@ -601,27 +631,22 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
         fabric || 'Pure Handloom Silk',
         embroidery || 'Hand Zardozi & Mukaish',
         color || 'Heritage Classic',
-        JSON.stringify(sizes || ['Custom Fit', 'S', 'M', 'L', 'XL']),
+        JSON.stringify(sizeList),
         description || 'Handcrafted couture piece from ROYALS Jaipur Atelier.',
         care_instructions || 'Dry Clean Only. Preserve in heirloom storage box.',
-        JSON.stringify(images || ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1200&q=85']),
+        JSON.stringify(imageList),
         5.0,
         0,
         is_featured ? 1 : 0,
         is_new_arrival ? 1 : 0,
+        displayOrder,
+        now,
         now
       ]
     );
 
     // Add inventory entries
-    const sizeList = sizes || ['Custom Fit', 'S', 'M', 'L', 'XL'];
-    sizeList.forEach((sz: string, idx: number) => {
-      db.run(
-        `INSERT INTO inventory (id, product_id, sku, size, stock_quantity, low_stock_threshold, last_restocked_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        [`inv_${id}_${idx}`, id, `RYL-${id.slice(-6).toUpperCase()}-${idx + 1}`, sz, Number(stock || 10), 3, now]
-      );
-    });
+    syncInventory(db, id, sizeList, Number(stock ?? 10), now);
 
     persistDb();
 
@@ -654,46 +679,67 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
       is_new_arrival
     } = req.body;
 
+    const existing = queryAll(db, 'SELECT * FROM products WHERE id = ? LIMIT 1', [id])[0];
+    if (!existing) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    if (price !== undefined && Number(price) <= 0) {
+      return res.status(400).json({ error: 'Price must be greater than zero' });
+    }
+
+    const sizeList = sizes === undefined ? JSON.parse(existing.sizes_json || '[]') : asStringList(sizes);
+    if (sizeList.length === 0) {
+      return res.status(400).json({ error: 'At least one available size is required' });
+    }
+    const imageList = images === undefined ? JSON.parse(existing.images_json || '[]') : asStringList(images);
+    const now = new Date().toISOString();
+    const nextTitle = title?.trim() || existing.title;
+    const nextStock = stock === undefined ? Number(existing.stock) : Number(stock);
+
     db.run(
       `UPDATE products SET
-        title = COALESCE(?, title),
-        category_id = COALESCE(?, category_id),
-        category_name = COALESCE(?, category_name),
-        price = COALESCE(?, price),
+        title = ?,
+        category_id = ?,
+        category_name = ?,
+        price = ?,
         discount_price = ?,
-        stock = COALESCE(?, stock),
-        fabric = COALESCE(?, fabric),
-        embroidery = COALESCE(?, embroidery),
-        color = COALESCE(?, color),
-        sizes_json = COALESCE(?, sizes_json),
-        description = COALESCE(?, description),
-        care_instructions = COALESCE(?, care_instructions),
-        images_json = COALESCE(?, images_json),
-        is_featured = COALESCE(?, is_featured),
-        is_new_arrival = COALESCE(?, is_new_arrival)
-      WHERE id = ?`,
+        stock = ?, fabric = ?, embroidery = ?, color = ?, sizes_json = ?, description = ?,
+        care_instructions = ?, images_json = ?, is_featured = ?, is_new_arrival = ?, updated_at = ?
+       WHERE id = ?`,
       [
-        title,
-        category_id,
-        category_name,
-        price ? Number(price) : null,
-        discount_price !== undefined ? (discount_price ? Number(discount_price) : null) : null,
-        stock !== undefined ? Number(stock) : null,
-        fabric,
-        embroidery,
-        color,
-        sizes ? JSON.stringify(sizes) : null,
-        description,
-        care_instructions,
-        images ? JSON.stringify(images) : null,
-        is_featured !== undefined ? (is_featured ? 1 : 0) : null,
-        is_new_arrival !== undefined ? (is_new_arrival ? 1 : 0) : null,
+        nextTitle, category_id || existing.category_id, category_name || existing.category_name,
+        price === undefined ? Number(existing.price) : Number(price),
+        discount_price === undefined ? existing.discount_price : (discount_price ? Number(discount_price) : null),
+        nextStock, fabric ?? existing.fabric, embroidery ?? existing.embroidery, color ?? existing.color,
+        JSON.stringify(sizeList), description ?? existing.description, care_instructions ?? existing.care_instructions,
+        JSON.stringify(imageList), is_featured === undefined ? existing.is_featured : (is_featured ? 1 : 0),
+        is_new_arrival === undefined ? existing.is_new_arrival : (is_new_arrival ? 1 : 0), now,
         id
       ]
     );
 
+    syncInventory(db, id, sizeList, nextStock, now);
+
     persistDb();
     res.json({ message: 'Product updated successfully' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Replace, remove, reorder, or set a cover image by submitting the desired ordered array.
+router.patch('/products/:id/images', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const { id } = req.params;
+    const images = asStringList(req.body.images);
+    const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    db.run('UPDATE products SET images_json = ?, updated_at = ? WHERE id = ?', [JSON.stringify(images), new Date().toISOString(), id]);
+    persistDb();
+    res.json({ message: 'Product images updated successfully', images });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -705,6 +751,9 @@ router.delete('/products/:id', authenticateAdmin, async (req: Request, res: Resp
     const db = await getDb();
     const { id } = req.params;
 
+    const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    db.run('DELETE FROM reviews WHERE product_id = ?', [id]);
     db.run('DELETE FROM products WHERE id = ?', [id]);
     db.run('DELETE FROM inventory WHERE product_id = ?', [id]);
     persistDb();

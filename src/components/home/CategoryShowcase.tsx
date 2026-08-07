@@ -42,7 +42,7 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
             >
               {/* Image with zoom effect */}
               <img
-                src={cat.image_url}
+                src={cat.image_url || '/images/catalog/royals-garment-01.jpeg'}
                 alt={cat.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"

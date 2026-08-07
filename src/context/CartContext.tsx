@@ -102,7 +102,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: `${product.id}_${size}_${selectedColor}_${Date.now()}`,
           productId: product.id,
           title: product.title,
-          image: product.images[0] || '',
+          image: product.images[0] || '/images/catalog/royals-garment-01.jpeg',
           price: effectivePrice,
           originalPrice: product.price,
           size,

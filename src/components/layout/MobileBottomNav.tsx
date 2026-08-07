@@ -59,7 +59,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }`}
         >
           <Truck className="w-4 h-4" />
-          <span>Track</span>
+          <span>Orders</span>
         </button>
 
         {/* Bag */}

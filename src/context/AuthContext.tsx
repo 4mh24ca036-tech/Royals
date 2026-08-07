@@ -9,8 +9,7 @@ interface AuthContextType {
   unreadNotificationCount: number;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
-  register: (data: { name: string; email: string; phone?: string; password: string }) => Promise<void>;
+  register: (data: { name: string; email: string; phone?: string; password: string }) => Promise<any>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
   addAddress: (addressData: any) => Promise<void>;
@@ -18,8 +17,6 @@ interface AuthContextType {
   markNotificationAsRead: (id: string) => Promise<void>;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
-  authModalMode: 'login' | 'register';
-  setAuthModalMode: (mode: 'login' | 'register') => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,7 +27,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
   const refreshProfile = async () => {
     const token = localStorage.getItem('royals_user_token');
@@ -60,20 +56,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshProfile();
   }, []);
 
-  const login = async (credentials: { email: string; password: string }) => {
-    const res = await api.customerLogin(credentials);
-    localStorage.setItem('royals_user_token', res.token);
-    setUser(res.user);
-    await refreshProfile();
-    setIsAuthModalOpen(false);
-  };
-
   const register = async (data: { name: string; email: string; phone?: string; password: string }) => {
-    const res = await api.customerRegister(data);
+    const res = await api.customerRegister(data) as any;
     localStorage.setItem('royals_user_token', res.token);
     setUser(res.user);
     await refreshProfile();
-    setIsAuthModalOpen(false);
+    // Keep modal open briefly to show success message for existing users
+    if (res.existingAccount) {
+      setTimeout(() => setIsAuthModalOpen(false), 2000);
+    } else {
+      setIsAuthModalOpen(false);
+    }
+    return res;
   };
 
   const logout = () => {
@@ -111,7 +105,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unreadNotificationCount,
         isAuthenticated: !!user,
         isLoading,
-        login,
         register,
         logout,
         refreshProfile,
@@ -119,9 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteAddress,
         markNotificationAsRead,
         isAuthModalOpen,
-        setIsAuthModalOpen,
-        authModalMode,
-        setAuthModalMode
+        setIsAuthModalOpen
       }}
     >
       {children}

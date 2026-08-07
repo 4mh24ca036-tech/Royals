@@ -9,10 +9,12 @@ import authRouter from './server/routes/auth.js';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3002;
 
   // Body parser
-  app.use(express.json());
+  // Product image uploads are stored as data URLs in SQLite so catalog changes
+  // remain available after the server restarts.
+  app.use(express.json({ limit: '12mb' }));
   app.use(express.urlencoded({ extended: true }));
 
   // Initialize and verify database on boot

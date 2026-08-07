@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { itemCount, setIsCartDrawerOpen } = useCart();
   const { wishlistCount } = useWishlist();
-  const { user, isAuthenticated, unreadNotificationCount, setIsAuthModalOpen, setAuthModalMode } = useAuth();
+  const { user, isAuthenticated, unreadNotificationCount, setIsAuthModalOpen } = useAuth();
 
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -61,7 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (isAuthenticated) {
       onOpenProfile();
     } else {
-      setAuthModalMode('login');
       setIsAuthModalOpen(true);
     }
   };
@@ -103,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="hidden md:flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em] text-[#1A1A1A] hover:text-[#C5A059] transition-colors cursor-pointer font-medium"
               >
                 <Truck className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Track Order</span>
+                <span>My Orders</span>
               </button>
             </div>
 
@@ -271,7 +270,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center justify-center gap-2 p-2.5 border border-[#E5E1D8] text-[10px] uppercase tracking-wider font-medium text-[#1A1A1A] hover:border-[#C5A059] transition-colors"
               >
                 <Truck className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Track Order</span>
+                <span>My Orders</span>
               </button>
 
               <button
@@ -282,7 +281,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center justify-center gap-2 p-2.5 border border-[#E5E1D8] text-[10px] uppercase tracking-wider font-medium text-[#1A1A1A] hover:border-[#C5A059] transition-colors"
               >
                 <UserIcon className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>{isAuthenticated ? 'My Account' : 'Sign In'}</span>
+                <span>{isAuthenticated ? 'My Account' : 'Join ROYALS'}</span>
               </button>
             </div>
 

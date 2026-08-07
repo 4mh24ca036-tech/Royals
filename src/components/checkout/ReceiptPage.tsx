@@ -339,7 +339,14 @@ export const ReceiptPage: React.FC<ReceiptPageProps> = ({
           </a>
 
           <button
-            onClick={() => downloadPaymentReceiptPdf(order)}
+            onClick={async () => {
+              try {
+                await downloadPaymentReceiptPdf(order);
+              } catch (error) {
+                console.error('Failed to download receipt:', error);
+                alert('Failed to download receipt. Please try again.');
+              }
+            }}
             className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-[#FAF9F6] border border-[#E5E1D8] text-[#1A1A1A] text-[11px] uppercase tracking-[0.2em] font-medium transition-colors cursor-pointer rounded-full flex items-center justify-center gap-2 shadow-sm"
           >
             <Download className="w-4 h-4 text-[#C5A059]" />
@@ -347,7 +354,14 @@ export const ReceiptPage: React.FC<ReceiptPageProps> = ({
           </button>
 
           <button
-            onClick={() => downloadInvoicePdf(order)}
+            onClick={() => {
+              try {
+                downloadInvoicePdf(order);
+              } catch (error) {
+                console.error('Failed to download invoice:', error);
+                alert('Failed to download invoice. Please try again.');
+              }
+            }}
             className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-[#FAF9F6] border border-[#E5E1D8] text-[#1A1A1A] text-[11px] uppercase tracking-[0.2em] font-medium transition-colors cursor-pointer rounded-full flex items-center justify-center gap-2 shadow-sm"
           >
             <FileText className="w-4 h-4 text-[#C5A059]" />

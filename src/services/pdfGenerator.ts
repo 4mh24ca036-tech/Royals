@@ -215,7 +215,24 @@ export function downloadInvoicePdf(order: Order) {
   doc.save(`ROYALS_Invoice_${order.order_number}.pdf`);
 }
 
-export function downloadPaymentReceiptPdf(order: Order) {
+async function loadReceiptImage(source: string): Promise<string | null> {
+  try {
+    if (source.startsWith('data:image/')) return source;
+    const response = await fetch(source.startsWith('/') ? `${window.location.origin}${source}` : source);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function downloadPaymentReceiptPdf(order: Order): Promise<void> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -259,7 +276,7 @@ export function downloadPaymentReceiptPdf(order: Order) {
   doc.setFont('times', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(26, 26, 26);
-  doc.text('Payment Confirmed', pageWidth / 2, 69, { align: 'center' });
+  doc.text(order.payment_status === 'PAID' ? 'Payment Confirmed' : 'Payment Verification Pending', pageWidth / 2, 69, { align: 'center' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
@@ -271,14 +288,17 @@ export function downloadPaymentReceiptPdf(order: Order) {
   const leftX = 32;
   const rightX = pageWidth - 32;
 
+  const address = order.shipping_address;
   const receiptRows = [
     { label: 'Order Number', value: `#${order.order_number}` },
     { label: 'Customer Name', value: order.customer_name },
+    { label: 'Phone Number', value: order.customer_phone },
+    { label: 'Email', value: order.customer_email },
     { label: 'Payment Method', value: order.payment_method },
-    { label: 'Transaction Reference', value: order.payment?.transaction_id || `TXN-RYL-${order.order_number.slice(-5)}` },
-    { label: 'Payment Gateway UTR', value: order.payment?.gateway_ref || 'PG-SETTLED-SUCCESS' },
+    { label: 'Transaction Reference', value: order.payment?.transaction_id || 'Pending verification' },
+    { label: 'Payment Gateway UTR', value: order.payment?.gateway_ref || 'Pending verification' },
     { label: 'Payment Date & Time', value: new Date(order.created_at).toLocaleString('en-GB') },
-    { label: 'Merchant', value: 'ROYALS Haute Couture, Jaipur (GSTIN: 08AAACR8942K1Z5)' }
+    { label: 'Current Status', value: order.order_status }
   ];
 
   receiptRows.forEach((r) => {
@@ -293,20 +313,58 @@ export function downloadPaymentReceiptPdf(order: Order) {
     rowY += 6.5;
   });
 
+  const addressY = 160;
+  doc.setFillColor(245, 239, 235);
+  doc.roundedRect(20, addressY, pageWidth - 40, 26, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(140, 120, 90);
+  doc.text('SHIPPING ADDRESS', 28, addressY + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(45, 45, 45);
+  doc.text(`${address.fullName || order.customer_name} · ${address.addressLine1}${address.addressLine2 ? `, ${address.addressLine2}` : ''}`, 28, addressY + 13);
+  doc.text(`${address.city}, ${address.state} - ${address.pincode} · Estimated delivery: ${order.estimated_delivery_date}`, 28, addressY + 19);
+
+  // Product section with stored product imagery and order snapshots.
+  let itemY = 195;
+  doc.setFont('times', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(26, 26, 26);
+  doc.text('Ordered ROYALS Creations', 20, itemY);
+  itemY += 5;
+  for (const item of order.items) {
+    if (itemY > 250) { doc.addPage(); itemY = 24; }
+    doc.setDrawColor(216, 204, 194);
+    doc.roundedRect(20, itemY, pageWidth - 40, 26, 1, 1, 'D');
+    const image = await loadReceiptImage(item.product_image);
+    if (image) {
+      try { doc.addImage(image, 'JPEG', 23, itemY + 3, 18, 20); } catch { /* a receipt remains printable if an image format is unsupported */ }
+    }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(26, 26, 26);
+    doc.text(item.product_title, 45, itemY + 7);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
+    const description = item.product_description || 'Hand-finished ROYALS atelier ensemble.';
+    const lines = doc.splitTextToSize(description, 102);
+    doc.text(lines.slice(0, 2), 45, itemY + 12);
+    doc.text(`Size: ${item.size} · Qty: ${item.quantity} · ₹${item.total_price.toLocaleString('en-IN')}`, 45, itemY + 22);
+    itemY += 30;
+  }
+
   // Support Box
   doc.setFillColor(245, 239, 235);
-  doc.roundedRect(20, 160, pageWidth - 40, 35, 2, 2, 'F');
+  doc.roundedRect(20, Math.min(itemY, 254), pageWidth - 40, 28, 2, 2, 'F');
 
   doc.setFont('times', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(26, 26, 26);
-  doc.text('Need Concierge Assistance?', 28, 170);
+  const supportY = Math.min(itemY, 254);
+  doc.text('Need Concierge Assistance?', 28, supportY + 10);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(70, 70, 70);
-  doc.text('Your payment is protected under ROYALS 100% Verified Transit & Authenticity Guarantee.', 28, 177);
-  doc.text('WhatsApp Hotline: +91 8000461784 | Address: Road No. 6, District Chaksu, Jaipur, Rajasthan', 28, 184);
+  doc.text('Your order is protected under the ROYALS Verified Transit & Authenticity Guarantee.', 28, supportY + 17);
+  doc.text('WhatsApp Hotline: +91 8000461784 | Jaipur Atelier', 28, supportY + 23);
 
   // Footer
   doc.setFont('helvetica', 'normal');
