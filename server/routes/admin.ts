@@ -603,7 +603,9 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
     }
 
     const sizeList = asStringList(sizes);
-    const imageList = asStringList(images);
+    // Filter out base64 data URLs — only URL paths stored in product_images.
+    // Actual file uploads go through POST /api/images/upload/:productId
+    const imageList = asStringList(images).filter((u: string) => !u.startsWith('data:'));
     if (sizeList.length === 0) {
       return res.status(400).json({ error: 'At least one available size is required' });
     }
@@ -647,6 +649,17 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
 
     // Add inventory entries
     syncInventory(db, id, sizeList, Number(stock ?? 10), now);
+
+    // Write URL-based images to product_images (permanent table)
+    imageList.forEach((url: string, idx: number) => {
+      const imgId = `pimg_${id}_${idx}_${Date.now()}${idx}`;
+      db.run(
+        `INSERT OR IGNORE INTO product_images
+           (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
+        [imgId, id, url, idx, idx === 0 ? 1 : 0, now, now]
+      );
+    });
 
     persistDb();
 
@@ -692,7 +705,9 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
     if (sizeList.length === 0) {
       return res.status(400).json({ error: 'At least one available size is required' });
     }
-    const imageList = images === undefined ? JSON.parse(existing.images_json || '[]') : asStringList(images);
+    const imageList = images === undefined
+      ? JSON.parse(existing.images_json || '[]')
+      : asStringList(images).filter((u: string) => !u.startsWith('data:'));
     const now = new Date().toISOString();
     const nextTitle = title?.trim() || existing.title;
     const nextStock = stock === undefined ? Number(existing.stock) : Number(stock);
@@ -719,6 +734,21 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
       ]
     );
 
+    // If images were explicitly provided, sync them into product_images
+    if (images !== undefined) {
+      // Remove old product_images rows and replace with new set
+      db.run('DELETE FROM product_images WHERE product_id = ?', [id]);
+      imageList.forEach((url: string, idx: number) => {
+        const imgId = `pimg_${id}_upd_${idx}_${Date.now()}${idx}`;
+        db.run(
+          `INSERT OR IGNORE INTO product_images
+             (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
+          [imgId, id, url, idx, idx === 0 ? 1 : 0, now, now]
+        );
+      });
+    }
+
     syncInventory(db, id, sizeList, nextStock, now);
 
     persistDb();
@@ -729,15 +759,32 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
 });
 
 // Replace, remove, reorder, or set a cover image by submitting the desired ordered array.
+// NOTE: For file uploads use POST /api/images/upload/:productId instead.
+// This endpoint accepts URL strings only (no base64).
 router.patch('/products/:id/images', authenticateAdmin, async (req: Request, res: Response) => {
   try {
     const db = await getDb();
     const { id } = req.params;
-    const images = asStringList(req.body.images);
+    const images = asStringList(req.body.images).filter((u: string) => !u.startsWith('data:'));
     const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
-    db.run('UPDATE products SET images_json = ?, updated_at = ? WHERE id = ?', [JSON.stringify(images), new Date().toISOString(), id]);
+    const now = new Date().toISOString();
+
+    // Replace product_images rows with the new ordered URL list
+    db.run('DELETE FROM product_images WHERE product_id = ?', [id]);
+    images.forEach((url: string, idx: number) => {
+      const imgId = `pimg_${id}_patch_${idx}_${Date.now()}${idx}`;
+      db.run(
+        `INSERT OR IGNORE INTO product_images
+           (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
+        [imgId, id, url, idx, idx === 0 ? 1 : 0, now, now]
+      );
+    });
+
+    // Keep images_json in sync
+    db.run('UPDATE products SET images_json = ?, updated_at = ? WHERE id = ?', [JSON.stringify(images), now, id]);
     persistDb();
     res.json({ message: 'Product images updated successfully', images });
   } catch (err: any) {
@@ -754,6 +801,7 @@ router.delete('/products/:id', authenticateAdmin, async (req: Request, res: Resp
     const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
     if (!product) return res.status(404).json({ error: 'Product not found' });
     db.run('DELETE FROM reviews WHERE product_id = ?', [id]);
+    db.run('DELETE FROM product_images WHERE product_id = ?', [id]);
     db.run('DELETE FROM products WHERE id = ?', [id]);
     db.run('DELETE FROM inventory WHERE product_id = ?', [id]);
     persistDb();
@@ -880,6 +928,33 @@ router.patch('/inventory/:id/restock', authenticateAdmin, async (req: Request, r
     res.json({ message: `Restocked by +${qty} units successfully` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── MIGRATE IMAGES TO CLOUDINARY ────────────────────────────────────────
+// POST /api/admin/migrate-images
+// Migrates all existing local images from /uploads/ to Cloudinary
+// Admin only. This should be run once when setting up Cloudinary.
+router.post('/migrate-images', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    const { MigrationService } = await import('../services/migrationService.js');
+    
+    const migrationService = new MigrationService(db);
+    const report = await migrationService.migrateLocalImagesToCloudinary();
+
+    persistDb();
+
+    res.json({
+      success: true,
+      message: 'Image migration completed',
+      report
+    });
+  } catch (err: any) {
+    console.error('Migration failed:', err);
+    res.status(500).json({
+      error: err.message || 'Image migration failed'
+    });
   }
 });
 

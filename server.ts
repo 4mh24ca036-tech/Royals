@@ -6,10 +6,22 @@ import productsRouter from './server/routes/products.js';
 import ordersRouter from './server/routes/orders.js';
 import adminRouter from './server/routes/admin.js';
 import authRouter from './server/routes/auth.js';
+import imagesRouter from './server/routes/images.js';
+import bannersRouter from './server/routes/banners.js';
 
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3002;
+
+  // Serve permanently uploaded product images from the persistent uploads directory.
+  // This must come BEFORE Vite middleware so static files are resolved first.
+  const uploadsPath = path.join(process.cwd(), 'public', 'uploads');
+  app.use('/uploads', express.static(uploadsPath, {
+    maxAge: '30d',
+    immutable: false,
+    etag: true,
+    lastModified: true
+  }));
 
   // Body parser
   // Product image uploads are stored as data URLs in SQLite so catalog changes
@@ -62,6 +74,8 @@ async function startServer() {
   app.use('/api/orders', ordersRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/images', imagesRouter);
+  app.use('/api/banners', bannersRouter);
 
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {

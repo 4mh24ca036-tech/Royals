@@ -18,7 +18,15 @@ export const HeritageStory: React.FC<HeritageStoryProps> = ({ onOpenStoreModal }
               <img
                 src="/images/kurta_chanderi_sharara.jpg"
                 alt="Jaipur Royal Atelier Craftsmanship"
-                referrerPolicy="no-referrer"
+                loading="eager"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.target as HTMLImageElement;
+                  if (!el.dataset.fallback) {
+                    el.dataset.fallback = '1';
+                    el.src = '/uploads/prod_boutique_02/garment-02.jpeg';
+                  }
+                }}
                 className="w-full h-full object-cover"
               />
             </div>

@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 data/
+
+# Uploaded product images must be committed — they are permanent product assets.
+# Never add public/uploads/ to this ignore list.
+!public/uploads/

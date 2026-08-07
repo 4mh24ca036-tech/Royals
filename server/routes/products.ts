@@ -3,21 +3,39 @@ import { getDb, persistDb } from '../db.js';
 
 const router = Router();
 
-// Helper to convert db results to objects
+// ── DB helper ──────────────────────────────────────────────────────────────
 function queryAll(db: any, sql: string, params: any[] = []) {
   const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
+  if (params.length > 0) stmt.bind(params);
+  const results: any[] = [];
+  while (stmt.step()) results.push(stmt.getAsObject());
   stmt.free();
   return results;
 }
 
-// GET all categories
+// ── Image resolution helper ───────────────────────────────────────────────
+// Always reads from product_images (the permanent table) first.
+// Falls back to images_json in the products row so old seed data still works
+// before the first server boot runs the migration.
+function resolveImages(db: any, productId: string, imagesJsonFallback: string): string[] {
+  const dbImages = queryAll(
+    db,
+    'SELECT image_url FROM product_images WHERE product_id = ? ORDER BY display_order ASC, created_at ASC',
+    [productId]
+  );
+  if (dbImages.length > 0) {
+    return dbImages.map((r: any) => r.image_url as string);
+  }
+  // Fallback: parse images_json, strip base64 data URLs
+  try {
+    const parsed: string[] = JSON.parse(imagesJsonFallback || '[]');
+    return parsed.filter((u) => u && !u.startsWith('data:'));
+  } catch {
+    return [];
+  }
+}
+
+// ── GET /api/products/categories ──────────────────────────────────────────
 router.get('/categories', async (req, res) => {
   try {
     const db = await getDb();
@@ -28,7 +46,7 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// GET all products with filtering, search, sorting
+// ── GET /api/products ─────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
     const db = await getDb();
@@ -41,42 +59,34 @@ router.get('/', async (req, res) => {
       sql += ' AND (category_id = ? OR category_name = ?)';
       params.push(category, category);
     }
-
     if (featured === 'true' || featured === '1') {
       sql += ' AND is_featured = 1';
     }
-
     if (newArrival === 'true' || newArrival === '1') {
       sql += ' AND is_new_arrival = 1';
     }
-
     if (fabric) {
       sql += ' AND fabric LIKE ?';
       params.push(`%${fabric}%`);
     }
-
     if (color) {
       sql += ' AND color LIKE ?';
       params.push(`%${color}%`);
     }
-
     if (minPrice) {
       sql += ' AND (COALESCE(discount_price, price) >= ?)';
       params.push(Number(minPrice));
     }
-
     if (maxPrice) {
       sql += ' AND (COALESCE(discount_price, price) <= ?)';
       params.push(Number(maxPrice));
     }
-
     if (search) {
       sql += ' AND (title LIKE ? OR description LIKE ? OR fabric LIKE ? OR embroidery LIKE ? OR color LIKE ? OR category_name LIKE ?)';
       const term = `%${search}%`;
       params.push(term, term, term, term, term, term);
     }
 
-    // Sorting
     switch (sort) {
       case 'price-asc':
         sql += ' ORDER BY COALESCE(discount_price, price) ASC';
@@ -102,7 +112,8 @@ router.get('/', async (req, res) => {
     const formatted = rows.map((r: any) => ({
       ...r,
       sizes: JSON.parse(r.sizes_json || '[]'),
-      images: JSON.parse(r.images_json || '[]'),
+      // Always source images from product_images table
+      images: resolveImages(db, r.id, r.images_json),
       is_featured: Boolean(r.is_featured),
       is_new_arrival: Boolean(r.is_new_arrival)
     }));
@@ -113,26 +124,36 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single product by ID or Slug
+// ── GET /api/products/:idOrSlug ───────────────────────────────────────────
 router.get('/:idOrSlug', async (req, res) => {
   try {
     const db = await getDb();
     const { idOrSlug } = req.params;
 
     const rows = queryAll(db, 'SELECT * FROM products WHERE id = ? OR slug = ? LIMIT 1', [idOrSlug, idOrSlug]);
-
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    const prod = rows[0];
+    const prod = rows[0] as any;
     const reviews = queryAll(db, 'SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC', [prod.id]);
     const inventory = queryAll(db, 'SELECT * FROM inventory WHERE product_id = ?', [prod.id]);
+
+    // Full image metadata (for the detail modal gallery)
+    const imageRecords = queryAll(
+      db,
+      'SELECT * FROM product_images WHERE product_id = ? ORDER BY display_order ASC, created_at ASC',
+      [prod.id]
+    );
 
     const formatted = {
       ...prod,
       sizes: JSON.parse(prod.sizes_json || '[]'),
-      images: JSON.parse(prod.images_json || '[]'),
+      images: resolveImages(db, prod.id, prod.images_json),
+      image_records: imageRecords.map((img: any) => ({
+        ...img,
+        is_cover: Boolean(img.is_cover)
+      })),
       is_featured: Boolean(prod.is_featured),
       is_new_arrival: Boolean(prod.is_new_arrival),
       reviews,
@@ -145,7 +166,7 @@ router.get('/:idOrSlug', async (req, res) => {
   }
 });
 
-// POST a review for a product
+// ── POST /api/products/:id/reviews ────────────────────────────────────────
 router.post('/:id/reviews', async (req, res) => {
   try {
     const db = await getDb();
@@ -168,9 +189,7 @@ router.post('/:id/reviews', async (req, res) => {
     // Recalculate product rating
     const revs = queryAll(db, 'SELECT rating FROM reviews WHERE product_id = ?', [id]);
     const avgRating = revs.reduce((acc: number, r: any) => acc + Number(r.rating), 0) / revs.length;
-    const roundedRating = Number(avgRating.toFixed(2));
-
-    db.run('UPDATE products SET rating = ?, review_count = ? WHERE id = ?', [roundedRating, revs.length, id]);
+    db.run('UPDATE products SET rating = ?, review_count = ? WHERE id = ?', [Number(avgRating.toFixed(2)), revs.length, id]);
     persistDb();
 
     res.status(201).json({

@@ -14,7 +14,7 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
   return (
     <section className="py-20 bg-[#FAF9F6]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
-        
+
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-14 space-y-3">
           <div className="inline-flex items-center gap-1.5 text-[#C5A059]">
@@ -40,11 +40,19 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
               onClick={() => onSelectCategory(cat.id)}
               className="group relative h-[380px] sm:h-[420px] overflow-hidden cursor-pointer shadow-sm transition-all duration-500 hover:shadow-xl border border-[#E5E1D8] bg-[#F5F2ED]"
             >
-              {/* Image with zoom effect */}
+              {/* Image — loaded from DB; fallback to a real uploaded garment */}
               <img
-                src={cat.image_url || '/images/catalog/royals-garment-01.jpeg'}
+                src={cat.image_url || '/uploads/prod_boutique_01/garment-01.jpeg'}
                 alt={cat.name}
-                referrerPolicy="no-referrer"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.target as HTMLImageElement;
+                  if (!el.dataset.fallback) {
+                    el.dataset.fallback = '1';
+                    el.src = '/uploads/prod_boutique_01/garment-01.jpeg';
+                  }
+                }}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
 
@@ -62,7 +70,7 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
                 <p className="text-xs text-[#D8D2C2] line-clamp-2 mt-2 font-light leading-relaxed">
                   {cat.description}
                 </p>
-                
+
                 <div className="pt-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] font-medium text-[#C5A059] group-hover:translate-x-1 transition-transform">
                   <span>Explore Collection</span>
                   <ArrowRight className="w-3.5 h-3.5" />

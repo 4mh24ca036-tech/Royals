@@ -235,5 +235,79 @@ export const api = {
     adminRequest<{ message: string }>(`/admin/inventory/${id}/restock`, {
       method: 'PATCH',
       body: JSON.stringify({ quantity })
+    }),
+
+  // ── Product Image Management ──────────────────────────────────────────
+  getProductImages: (productId: string) =>
+    request<any[]>(`/images/product/${productId}`),
+
+  uploadProductImages: (productId: string, files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('images', f));
+    return adminRequest<{ success: boolean; message: string; images: any[] }>(
+      `/images/upload/${productId}`,
+      { method: 'POST', body: form }
+    );
+  },
+
+  deleteProductImage: (imageId: string) =>
+    adminRequest<{ success: boolean; message: string }>(`/images/${imageId}`, {
+      method: 'DELETE'
+    }),
+
+  setProductImageCover: (imageId: string) =>
+    adminRequest<{ success: boolean; message: string; images: any[] }>(
+      `/images/${imageId}/cover`,
+      { method: 'PATCH' }
+    ),
+
+  reorderProductImages: (productId: string, order: string[]) =>
+    adminRequest<{ success: boolean; message: string; images: any[] }>(
+      `/images/reorder/${productId}`,
+      { method: 'PATCH', body: JSON.stringify({ order }) }
+    ),
+
+  replaceProductImage: (imageId: string, file: File) => {
+    const form = new FormData();
+    form.append('image', file);
+    return adminRequest<{ success: boolean; message: string; image: any }>(
+      `/images/${imageId}`,
+      { method: 'PATCH', body: form }
+    );
+  },
+
+  // ── Banner Management ─────────────────────────────────────────────────────
+  // Public: fetches only active banners (used by HeroCarousel)
+  getBanners: () => request<any[]>('/banners'),
+
+  // Admin: fetches all banners including inactive
+  getAdminBanners: () => adminRequest<any[]>('/banners/all'),
+
+  createBanner: (formData: FormData) =>
+    adminRequest<{ success: boolean; banner: any }>('/banners', {
+      method: 'POST',
+      body: formData
+    }),
+
+  updateBanner: (id: string, formData: FormData) =>
+    adminRequest<{ success: boolean; banner: any }>(`/banners/${id}`, {
+      method: 'PUT',
+      body: formData
+    }),
+
+  toggleBanner: (id: string) =>
+    adminRequest<{ success: boolean; is_active: boolean; message: string }>(`/banners/${id}/toggle`, {
+      method: 'PATCH'
+    }),
+
+  reorderBanners: (order: string[]) =>
+    adminRequest<{ success: boolean; banners: any[] }>('/banners/reorder', {
+      method: 'PATCH',
+      body: JSON.stringify({ order })
+    }),
+
+  deleteBanner: (id: string) =>
+    adminRequest<{ success: boolean; message: string }>(`/banners/${id}`, {
+      method: 'DELETE'
     })
 };

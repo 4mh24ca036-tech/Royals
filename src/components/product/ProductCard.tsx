@@ -37,9 +37,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
       {/* Product Image Stage */}
       <div className="relative aspect-[3/4] bg-[#F5F2ED] overflow-hidden">
         <img
-          src={product.images[0] || '/images/mens_raw_silk_kurta.jpg'}
+          src={product.images[0] || '/uploads/prod_boutique_01/garment-01.jpeg'}
           alt={product.title}
-          referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const el = e.target as HTMLImageElement;
+            if (!el.dataset.fallback) {
+              el.dataset.fallback = '1';
+              el.src = '/uploads/prod_boutique_01/garment-01.jpeg';
+            }
+          }}
           className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
         />
 
@@ -48,7 +56,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
           <img
             src={product.images[1]}
             alt={`${product.title} Alternate`}
-            referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             className="absolute inset-0 w-full h-full object-cover object-top opacity-0 group-hover:opacity-100 transition-opacity duration-500"
           />
         )}

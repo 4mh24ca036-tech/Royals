@@ -247,6 +247,47 @@ function initializeSchema(db: Database) {
       low_stock_threshold INTEGER DEFAULT 3,
       last_restocked_at TEXT
     );
+con
+    CREATE TABLE IF NOT EXISTS product_images (
+      id          TEXT PRIMARY KEY,
+      product_id  TEXT NOT NULL,
+      image_url   TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      is_cover    INTEGER NOT NULL DEFAULT 0,
+      view_type   TEXT DEFAULT 'gallery',
+      alt_text    TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS banners (
+      id               TEXT PRIMARY KEY,
+      title            TEXT NOT NULL DEFAULT '',
+      subtitle         TEXT DEFAULT '',
+      description      TEXT DEFAULT '',
+      image_url        TEXT NOT NULL,
+      mobile_image_url TEXT DEFAULT '',
+      button_text      TEXT DEFAULT '',
+      button_link      TEXT DEFAULT '',
+      tag              TEXT DEFAULT '',
+      category_id      TEXT DEFAULT '',
+      display_order    INTEGER NOT NULL DEFAULT 0,
+      is_active        INTEGER NOT NULL DEFAULT 1,
+      created_at       TEXT NOT NULL,
+      updated_at       TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS editorial_strips (
+      id            TEXT PRIMARY KEY,
+      image_url     TEXT NOT NULL,
+      label         TEXT NOT NULL DEFAULT '',
+      subtitle      TEXT DEFAULT '',
+      category_id   TEXT DEFAULT '',
+      display_order INTEGER NOT NULL DEFAULT 0,
+      is_active     INTEGER NOT NULL DEFAULT 1,
+      created_at    TEXT NOT NULL,
+      updated_at    TEXT NOT NULL
+    );
   `);
 
   // Lightweight, idempotent migration for databases created before catalog
@@ -685,6 +726,139 @@ function seedInitialData(db: Database) {
     db.run("INSERT INTO app_migrations (id, applied_at) VALUES ('catalog_price_band_20260807', ?)", [suppliedNow]);
   }
 
+  // ── Catalog images migration ──────────────────────────────────────────────
+  // Runs once. Creates product rows 22–76 and links all 76 garment images
+  // from /uploads/<productId>/garment-XX.jpeg into product_images.
+  // Idempotent: guarded by app_migrations key 'catalog_images_v2_20260807'.
+  const catalogImgMigration = db.exec("SELECT id FROM app_migrations WHERE id = 'catalog_images_v2_20260807'");
+  if (!catalogImgMigration[0]?.values.length) {
+    const catalogEntries: [number, string, string, string, string][] = [
+      [1,'Teal Maroon Heritage Kurta Set','Teal & Maroon','Resham accent work','cat_womens_kurtas'],
+      [2,'Ivory Floral Embroidered Anarkali Set','Ivory & Rose','Floral thread embroidery','cat_anarkali_kurtas'],
+      [3,'Olive Rose Garden Kurta Set','Olive & Pink','Floral thread embroidery','cat_womens_kurtas'],
+      [4,'Teal Mustard Dupatta Kurta Set','Teal & Mustard','Geometric motif embroidery','cat_womens_kurtas'],
+      [5,'Forest Green Mirror Work Kurta','Forest Green','Mirror and block-print yoke','cat_womens_kurtas'],
+      [6,'Black Maroon Printed Kurta Set','Black & Maroon','Printed border detailing','cat_womens_kurtas'],
+      [7,'Magenta Floral Dupatta Kurta Set','Magenta','All-over floral print','cat_womens_kurtas'],
+      [8,'Wine Ajrakh Dupatta Kurta Set','Wine','Ajrakh-inspired yoke and dupatta','cat_womens_kurtas'],
+      [9,'Rust Brown Embroidered Kurta Set','Rust Brown','Mirror and leaf embroidery','cat_womens_kurtas'],
+      [10,'Mustard Teal Printed Kurta Set','Teal & Mustard','Paisley print','cat_womens_kurtas'],
+      [11,'Plum Diamond Motif Kurta Set','Plum','Diamond thread embroidery','cat_womens_kurtas'],
+      [12,'Crimson Black Dupatta Kurta Set','Crimson & Black','Contrast border print','cat_womens_kurtas'],
+      [13,'Navy Floral Tiered Kurta','Navy Blue','Floral print','cat_anarkali_kurtas'],
+      [14,'Midnight Floral Kurta Set','Midnight Blue','Floral yoke and border embroidery','cat_womens_kurtas'],
+      [15,'Black Mustard Block Print Kurta Set','Black & Mustard','Hand block print','cat_womens_kurtas'],
+      [16,'Olive Rust Yoke Kurta Set','Olive & Rust','Geometric yoke embroidery','cat_womens_kurtas'],
+      [17,'Ivory Garden Embroidered Anarkali','Ivory & Berry','Floral embroidery','cat_anarkali_kurtas'],
+      [18,'Ivory Garden Embroidered Anarkali Detail','Ivory & Berry','Floral embroidery','cat_anarkali_kurtas'],
+      [19,'White Multi-Floral Kurta Set','White & Multicolor','Floral applique work','cat_womens_kurtas'],
+      [20,'Navy Mustard Border Kurta Set','Navy & Mustard','Embroidered neckline','cat_womens_kurtas'],
+      [21,'Turquoise Maroon Kurta Set','Turquoise & Maroon','Sun motif embroidery','cat_womens_kurtas'],
+      [22,'Lime Yellow Dupatta Kurta Set','Lime Yellow','Minimal geometric print','cat_womens_kurtas'],
+      [23,'Peach Floral Block Print Kurta Set','Peach & Orange','Block print floral','cat_womens_kurtas'],
+      [24,'Sky Blue Embroidered Kurta Set','Sky Blue','Yoke embroidery with sequins','cat_womens_kurtas'],
+      [25,'Purple Ikat Kurta Set','Purple','Ikat weave','cat_womens_kurtas'],
+      [26,'Maroon Heritage Block Print Set','Maroon','Heritage block print','cat_womens_kurtas'],
+      [27,'Dark Teal Geometric Kurta Set','Dark Teal','Geometric woven motifs','cat_womens_kurtas'],
+      [28,'Dusty Pink Rose Kurta Set','Dusty Pink','Rose embroidery','cat_womens_kurtas'],
+      [29,'Crimson Floral Anarkali Set','Crimson','Floral embroidery','cat_anarkali_kurtas'],
+      [30,'Bottle Green Zari Kurta Set','Bottle Green','Zari border work','cat_womens_kurtas'],
+      [31,'Coral Orange Embroidered Set','Coral Orange','Neck and sleeve embroidery','cat_womens_kurtas'],
+      [32,'Lavender Chikankari Kurta Set','Lavender','Chikankari thread work','cat_womens_kurtas'],
+      [33,'Khaki Floral Kurta Set','Khaki','Floral motif embroidery','cat_womens_kurtas'],
+      [34,'Olive Ikat Dupatta Set','Olive','Ikat pattern','cat_womens_kurtas'],
+      [35,'Navy Banarasi Anarkali Set','Navy Blue','Banarasi weave','cat_anarkali_kurtas'],
+      [36,'Coral Ajrakh Kurta Set','Coral','Ajrakh block print','cat_womens_kurtas'],
+      [37,'Dark Brown Floral Embroidered Set','Dark Brown','Floral embroidery','cat_womens_kurtas'],
+      [38,'Teal Gold Paisley Kurta Set','Teal & Gold','Paisley block print','cat_womens_kurtas'],
+      [39,'Wine Mirror Work Anarkali Set','Wine','Mirror work','cat_anarkali_kurtas'],
+      [40,'Indigo Bandhani Kurta Set','Indigo','Bandhani tie-dye','cat_womens_kurtas'],
+      [41,'Forest Green Zari Anarkali','Forest Green','Zari embroidery','cat_anarkali_kurtas'],
+      [42,'Mauve Palazzo Kurta Set','Mauve','Gota patti trim','cat_womens_kurtas'],
+      [43,'Rust Ikat Dupatta Set','Rust','Ikat weave','cat_womens_kurtas'],
+      [44,'Pink Chikankari Anarkali','Pink','Chikankari thread work','cat_anarkali_kurtas'],
+      [45,'Plum Gold Brocade Kurta Set','Plum & Gold','Brocade weave','cat_womens_kurtas'],
+      [46,'Maroon Mukaish Kurta Set','Maroon','Mukaish badla work','cat_womens_kurtas'],
+      [47,'Teal Embroidered Cotton Set','Teal','Cotton thread embroidery','cat_womens_kurtas'],
+      [48,'Olive Cotton Floral Set','Olive','Floral print','cat_womens_kurtas'],
+      [49,'Navy Sequin Kurta Set','Navy Blue','Sequin work neckline','cat_womens_kurtas'],
+      [50,'Dark Green Woven Kurta Set','Dark Green','Woven geometric border','cat_womens_kurtas'],
+      [51,'Burgundy Anarkali Lehenga','Burgundy','Zardozi & sequin work','cat_anarkali_kurtas'],
+      [52,'Pastel Pink Floral Anarkali','Pastel Pink','Floral embroidery','cat_anarkali_kurtas'],
+      [53,'Teal Floral Block Print Set','Teal','Block print','cat_womens_kurtas'],
+      [54,'Brown Gold Motif Kurta Set','Brown & Gold','Woven motif border','cat_womens_kurtas'],
+      [55,'Purple Phulkari Dupatta Set','Purple','Phulkari embroidery','cat_womens_kurtas'],
+      [56,'Sage Green Kurta Set','Sage Green','Minimal embroidery','cat_womens_kurtas'],
+      [57,'Red Bandhani Kurta Set','Red','Bandhani tie-dye','cat_womens_kurtas'],
+      [58,'Midnight Blue Floral Set','Midnight Blue','Floral block print','cat_womens_kurtas'],
+      [59,'Black Ajrakh Printed Set','Black','Ajrakh block print','cat_womens_kurtas'],
+      [60,'Coral Embroidered Anarkali','Coral','Thread embroidery','cat_anarkali_kurtas'],
+      [61,'Maroon Woven Cotton Set','Maroon','Woven cotton motif','cat_womens_kurtas'],
+      [62,'Peacock Blue Kurta Set','Peacock Blue','Peacock motif embroidery','cat_womens_kurtas'],
+      [63,'Ivory Resham Kurta Set','Ivory','Resham thread embroidery','cat_womens_kurtas'],
+      [64,'Emerald Cotton Kurta Set','Emerald','Geometric print','cat_womens_kurtas'],
+      [65,'Mustard Kalamkari Kurta Set','Mustard','Kalamkari print','cat_womens_kurtas'],
+      [66,'Fuschia Mirror Dupatta Set','Fuschia','Mirror work','cat_womens_kurtas'],
+      [67,'Beige Gota Kurta Set','Beige','Gota patti trim','cat_womens_kurtas'],
+      [68,'Rose Pink Anarkali Lehenga','Rose Pink','Zardozi embroidery','cat_anarkali_kurtas'],
+      [69,'Dark Red Heritage Kurta Set','Dark Red','Heritage block print','cat_womens_kurtas'],
+      [70,'Olive Yellow Ikat Kurta Set','Olive Yellow','Ikat weave','cat_womens_kurtas'],
+      [71,'Light Purple Embroidered Set','Light Purple','Thread embroidery','cat_womens_kurtas'],
+      [72,'Black Gold Printed Set','Black & Gold','Gold foil print','cat_womens_kurtas'],
+      [73,'Brick Red Floral Kurta Set','Brick Red','Floral print','cat_womens_kurtas'],
+      [74,'Deep Blue Bandhani Set','Deep Blue','Bandhani tie-dye','cat_womens_kurtas'],
+      [75,'Sage Floral Embroidered Set','Sage Green','Floral embroidery','cat_womens_kurtas'],
+      [76,'Teal Paisley Embroidered Set','Teal','Paisley embroidery','cat_womens_kurtas'],
+    ];
+
+    for (const [num, title, color, embroidery, categoryId] of catalogEntries) {
+      const garmentNum = String(num).padStart(2, '0');
+      const productId = `prod_boutique_${garmentNum}`;
+      const uploadUrl = `/uploads/${productId}/garment-${garmentNum}.jpeg`;
+      const price = 500 + ((num % 6) * 100);
+      const displayOrder = 100 + num;
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + `-${garmentNum}`;
+
+      // Ensure product row exists (INSERT OR IGNORE = safe if already seeded)
+      db.run(
+        `INSERT OR IGNORE INTO products (
+          id, title, slug, category_id, category_name, price, discount_price, stock,
+          fabric, embroidery, color, sizes_json, description, care_instructions,
+          images_json, rating, review_count, is_featured, is_new_arrival,
+          display_order, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, 10, ?, ?, ?, ?, ?, ?, ?, 4.8, 0, ?, ?, ?, ?, ?)`,
+        [
+          productId, title, slug, categoryId, "Designer Women's Kurta Sets",
+          price, 'Comfortable blended cotton', embroidery, color,
+          JSON.stringify(['S', 'M', 'L', 'XL', 'XXL']),
+          `${title}, curated for the ROYALS Jaipur boutique collection.`,
+          'Gentle hand wash or dry clean as preferred.',
+          JSON.stringify([uploadUrl]),
+          num <= 8 ? 1 : 0, num <= 6 ? 1 : 0,
+          displayOrder, suppliedNow, suppliedNow
+        ]
+      );
+
+      // Update any existing boutique product to point to /uploads/ URL
+      db.run(
+        'UPDATE products SET images_json = ?, updated_at = ? WHERE id = ?',
+        [JSON.stringify([uploadUrl]), suppliedNow, productId]
+      );
+
+      // Upsert into product_images (INSERT OR REPLACE is idempotent)
+      const imgId = `pimg_boutique_${garmentNum}_seed`;
+      db.run(
+        `INSERT OR REPLACE INTO product_images
+           (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
+         VALUES (?, ?, ?, 0, 1, 'gallery', ?, ?, ?)`,
+        [imgId, productId, uploadUrl, title, suppliedNow, suppliedNow]
+      );
+    }
+
+    db.run("INSERT OR IGNORE INTO app_migrations (id, applied_at) VALUES ('catalog_images_v2_20260807', ?)", [suppliedNow]);
+    console.log('ROYALS: Catalog images migration applied (76 garments seeded into product_images).');
+  }
+
   // Check Coupons
   const coupRes = db.exec(`SELECT COUNT(*) as count FROM coupons;`);
   const coupCount = coupRes.length > 0 && coupRes[0].values.length > 0 ? (coupRes[0].values[0][0] as number) : 0;
@@ -836,5 +1010,147 @@ function seedInitialData(db: Database) {
         '2026-08-04T10:42:00.000Z'
       ]
     );
+  }
+
+  // ── Seed default banners (runs once, idempotent via app_migrations) ───────
+  // Uses the three existing hero images from /images/ as the initial banners.
+  // Admins can upload real images later via the banner manager.
+  db.run('CREATE TABLE IF NOT EXISTS app_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const bannerSeedDone = db.exec("SELECT id FROM app_migrations WHERE id = 'banner_seed_v1_20260808'");
+  if (!bannerSeedDone[0]?.values.length) {
+    const bannerNow = new Date().toISOString();
+    const defaultBanners = [
+      {
+        id: 'banner_001',
+        title: 'THE IMPERIAL KURTA ATELIER',
+        subtitle: 'HERITAGE COUTURE 2026',
+        description: 'Handcrafted in pure handloom raw silk, Chanderi, and organza with antique Jaipur Zardozi, Chikankari, and real 24K gold mukaish work.',
+        image_url: '/images/hero_royal_kurtas_1785856586452.jpg',
+        mobile_image_url: '',
+        button_text: 'Explore Royal Kurtas',
+        button_link: '',
+        tag: 'Haute Couture Kurtas',
+        category_id: 'cat_mens_kurtas',
+        display_order: 0,
+        is_active: 1
+      },
+      {
+        id: 'banner_002',
+        title: 'LUCKNOWI CHIKANKARI & MUKAISH',
+        subtitle: "DESIGNER WOMEN'S KURTA SETS",
+        description: 'Ethereal pastel georgettes, scalloped organza dupattas, and intricate hand needlecraft tailored for festive grandeur.',
+        image_url: '/images/women_chikankari_kurta_1785856609497.jpg',
+        mobile_image_url: '',
+        button_text: "Explore Women's Kurtas",
+        button_link: '',
+        tag: "Women's Couture",
+        category_id: 'cat_womens_kurtas',
+        display_order: 1,
+        is_active: 1
+      },
+      {
+        id: 'banner_003',
+        title: 'THE MAHARAJA RAW SILK SETS',
+        subtitle: "REGAL MEN'S ETHNIC COUTURE",
+        description: 'Pure handloom raw silk kurta pajama sets and structured Bandhgalas with handcrafted 24K gold plated Jaipur crest buttons.',
+        image_url: '/images/mens_raw_silk_kurta_1785856598401.jpg',
+        mobile_image_url: '',
+        button_text: "Explore Men's Silk Kurtas",
+        button_link: '',
+        tag: "Men's Silk Kurtas",
+        category_id: 'cat_bandhgala_kurtas',
+        display_order: 2,
+        is_active: 1
+      }
+    ];
+    for (const b of defaultBanners) {
+      db.run(
+        `INSERT OR IGNORE INTO banners
+           (id, title, subtitle, description, image_url, mobile_image_url, button_text, button_link, tag, category_id, display_order, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [b.id, b.title, b.subtitle, b.description, b.image_url, b.mobile_image_url, b.button_text, b.button_link, b.tag, b.category_id, b.display_order, b.is_active, bannerNow, bannerNow]
+      );
+    }
+    db.run("INSERT OR IGNORE INTO app_migrations (id, applied_at) VALUES ('banner_seed_v1_20260808', ?)", [bannerNow]);
+    console.log('ROYALS: Default banners seeded.');
+  }
+
+  // ── Seed editorial strip cards ────────────────────────────────────────
+  // Five curated cards using existing uploaded garment images. The admin can
+  // update these via the admin panel. Guarded by app_migrations so they only
+  // insert once on a fresh DB.
+  db.run('CREATE TABLE IF NOT EXISTS app_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const editorialSeedDone = db.exec("SELECT id FROM app_migrations WHERE id = 'editorial_seed_v1_20260808'");
+  if (!editorialSeedDone[0]?.values.length) {
+    const edNow = new Date().toISOString();
+    const editorialCards = [
+      { id: 'ed_01', image_url: '/uploads/prod_boutique_25/garment-25.jpeg', label: 'New Arrivals',      subtitle: 'Fresh Styles Every Week',          category_id: 'cat_womens_kurtas',   display_order: 0 },
+      { id: 'ed_02', image_url: '/uploads/prod_boutique_41/garment-41.jpeg', label: 'Festive Couture',   subtitle: 'Celebrate in Royal Style',         category_id: 'cat_anarkali_kurtas', display_order: 1 },
+      { id: 'ed_03', image_url: '/uploads/prod_boutique_51/garment-51.jpeg', label: 'Bridal Collection', subtitle: 'Your Wedding, Our Masterpiece',     category_id: 'cat_bridal_lehengas', display_order: 2 },
+      { id: 'ed_04', image_url: '/uploads/prod_boutique_60/garment-60.jpeg', label: 'Trending Now',      subtitle: 'Most Loved This Season',           category_id: 'cat_womens_kurtas',   display_order: 3 },
+      { id: 'ed_05', image_url: '/uploads/prod_boutique_36/garment-36.jpeg', label: 'Best Sellers',      subtitle: 'Timeless Jaipur Classics',         category_id: 'cat_womens_kurtas',   display_order: 4 },
+    ];
+    for (const card of editorialCards) {
+      db.run(
+        `INSERT OR IGNORE INTO editorial_strips
+           (id, image_url, label, subtitle, category_id, display_order, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [card.id, card.image_url, card.label, card.subtitle, card.category_id, card.display_order, edNow, edNow]
+      );
+    }
+    db.run("INSERT OR IGNORE INTO app_migrations (id, applied_at) VALUES ('editorial_seed_v1_20260808', ?)", [edNow]);
+    console.log('ROYALS: Editorial strip cards seeded.');
+  }
+
+  // ── Fix image path migration: remove timestamp suffixes ────────────────
+  // Previously, image files had timestamp suffixes in their names
+  // (e.g. hero_royal_kurtas_1785856586452.jpg) but all code referenced them
+  // without the suffix. The files have been renamed on disk; this migration
+  // ensures the DB rows also use the clean paths.
+  db.run('CREATE TABLE IF NOT EXISTS app_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+  const imgPathFixDone = db.exec("SELECT id FROM app_migrations WHERE id = 'image_path_fix_v1_20260808'");
+  if (!imgPathFixDone[0]?.values.length) {
+    const fixNow = new Date().toISOString();
+
+    // Fix category image_url
+    const catPathFixes: [string, string][] = [
+      ['cat_mens_kurtas',          '/images/mens_raw_silk_kurta.jpg'],
+      ['cat_womens_kurtas',        '/images/women_chikankari_kurta.jpg'],
+      ['cat_anarkali_kurtas',      '/images/emerald_anarkali_kurta.jpg'],
+      ['cat_bandhgala_kurtas',     '/images/midnight_bandhgala_kurta.jpg'],
+      ['cat_bridal_lehengas',      '/images/kurta_chanderi_sharara.jpg'],
+      ['cat_heritage_accessories', '/images/kurta_jaipur_angrakha.jpg']
+    ];
+    for (const [id, url] of catPathFixes) {
+      db.run('UPDATE categories SET image_url = ? WHERE id = ?', [url, id]);
+    }
+
+    // Fix 8 hero product images_json
+    const prodPathFixes: [string, string[]][] = [
+      ['prod_raw_silk_kurta_set',       ['/images/mens_raw_silk_kurta.jpg',      '/images/hero_royal_kurtas.jpg']],
+      ['prod_chikankari_mukaish_kurta', ['/images/women_chikankari_kurta.jpg',   '/images/kurta_chanderi_sharara.jpg']],
+      ['prod_midnight_bandhgala_kurta', ['/images/midnight_bandhgala_kurta.jpg', '/images/kurta_nehru_jacket_set.jpg']],
+      ['prod_emerald_anarkali_kurta',   ['/images/emerald_anarkali_kurta.jpg',   '/images/women_chikankari_kurta.jpg']],
+      ['prod_jaipur_angrakha_kurta',    ['/images/kurta_jaipur_angrakha.jpg',    '/images/hero_royal_kurtas.jpg']],
+      ['prod_chanderi_sharara_kurta',   ['/images/kurta_chanderi_sharara.jpg',   '/images/women_chikankari_kurta.jpg']],
+      ['prod_nehru_jacket_kurta_set',   ['/images/kurta_nehru_jacket_set.jpg',   '/images/mens_raw_silk_kurta.jpg']],
+      ['prod_padmavati_kurta_lehenga',  ['/images/hero_royal_kurtas.jpg',        '/images/emerald_anarkali_kurta.jpg']]
+    ];
+    for (const [id, imgs] of prodPathFixes) {
+      db.run('UPDATE products SET images_json = ?, updated_at = ? WHERE id = ?',
+        [JSON.stringify(imgs), fixNow, id]);
+      imgs.forEach((url, idx) => {
+        const imgId = `pimg_hero_${id}_${idx}`;
+        db.run(
+          `INSERT OR REPLACE INTO product_images
+             (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
+          [imgId, id, url, idx, idx === 0 ? 1 : 0, fixNow, fixNow]
+        );
+      });
+    }
+
+    db.run("INSERT OR IGNORE INTO app_migrations (id, applied_at) VALUES ('image_path_fix_v1_20260808', ?)", [fixNow]);
+    console.log('ROYALS: Image path fix migration applied.');
   }
 }

@@ -19,6 +19,7 @@ import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { api } from '../../services/api';
 import { SizeGuideModal } from './SizeGuideModal';
+import { ProductImageGallery } from './ProductImageGallery';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -36,7 +37,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const { addToCart, setIsCartDrawerOpen } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
-  const [selectedImage, setSelectedImage] = useState<number>(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState<boolean>(false);
@@ -129,38 +129,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               
               {/* Left Column: Image Gallery (6 cols) */}
               <div className="lg:col-span-6 space-y-4">
-                {/* Main Large Image */}
-                <div className="relative aspect-[3/4] bg-[#F5F2ED] overflow-hidden shadow-sm border border-[#E5E1D8]">
-                  <img
-                    src={product.images[selectedImage] || product.images[0] || '/images/mens_raw_silk_kurta.jpg'}
-                    alt={product.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover object-top"
-                  />
-
-                  {product.is_new_arrival && (
-                    <span className="absolute top-4 left-4 px-3 py-1 bg-white text-[#1A1A1A] text-[9px] font-medium uppercase tracking-[0.2em] border border-[#E5E1D8]">
-                      New Arrival
-                    </span>
-                  )}
-                </div>
-
-                {/* Thumbnails */}
-                {product.images.length > 1 && (
-                  <div className="flex items-center gap-3 overflow-x-auto pb-2">
-                    {product.images.map((img, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedImage(idx)}
-                        className={`relative w-20 h-24 overflow-hidden shrink-0 border transition-all cursor-pointer ${
-                          selectedImage === idx ? 'border-[#C5A059] shadow-sm' : 'border-[#E5E1D8] opacity-70 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={img} alt="Thumb" referrerPolicy="no-referrer" className="w-full h-full object-cover object-top" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <ProductImageGallery
+                  images={product.images}
+                  title={product.title}
+                  preloadCover={true}
+                />
               </div>
 
               {/* Right Column: Details & Actions (6 cols) */}

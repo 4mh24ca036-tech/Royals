@@ -43,12 +43,15 @@ import {
   User,
   Crown,
   XCircle,
-  Settings
+  Settings,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { api } from '../../services/api';
 import { AdminStats, Order, Product, Category, Coupon, InventoryItem } from '../../types';
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, downloadOrderSummaryPdf } from '../../services/pdfGenerator';
+import { AdminImageManager, type ImageRecord } from './AdminImageManager';
+import { BannerManager } from './BannerManager';
 
 interface AdminPortalProps {
   isOpen: boolean;
@@ -86,7 +89,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Admin active section tab (Products default after login per requirements)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'customers' | 'analytics' | 'inventory' | 'coupons'>('products');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'customers' | 'analytics' | 'inventory' | 'coupons' | 'banners'>('products');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   // Loaded data states
@@ -144,7 +147,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [prodStock, setProdStock] = useState<number>(12);
   const [prodDesc, setProdDesc] = useState('Exquisite artisan hand-stitched royal kurta set finished with antique gold zari work and silk linings.');
   const [prodImages, setProdImages] = useState<string[]>([]);
-  const [prodImageUrl, setProdImageUrl] = useState('');
+  // Image records fetched from product_images table (used by AdminImageManager when editing)
+  const [prodImageRecords, setProdImageRecords] = useState<ImageRecord[]>([]);
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodNewArrival, setProdNewArrival] = useState(false);
 
@@ -407,9 +411,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       if (editingProductId) {
         await api.updateProduct(editingProductId, productPayload);
-        await api.updateProductImages(editingProductId, prodImages);
+        // Images are managed directly by AdminImageManager — no separate call needed
       } else {
-        await api.createProduct({ ...productPayload, images: prodImages });
+        await api.createProduct({ ...productPayload, images: [] });
       }
 
       setIsAddingProduct(false);
@@ -434,10 +438,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setProdStock(prod.stock);
     setProdDesc(prod.description);
     setProdImages(prod.images || []);
-    setProdImageUrl('');
     setProdFeatured(Boolean(prod.is_featured));
     setProdNewArrival(Boolean(prod.is_new_arrival));
     setIsAddingProduct(true);
+    // Load permanent image records for the AdminImageManager
+    api.getProductImages(prod.id).then((records) => setProdImageRecords(records)).catch(() => {
+      // Fallback: convert existing images array to minimal records
+      setProdImageRecords(
+        (prod.images || []).map((url: string, idx: number) => ({
+          id: `legacy_${idx}`,
+          product_id: prod.id,
+          image_url: url,
+          display_order: idx,
+          is_cover: idx === 0,
+          view_type: 'gallery',
+          alt_text: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }))
+      );
+    });
   };
 
   const resetProductForm = () => {
@@ -453,47 +473,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setProdStock(10);
     setProdDesc('A handcrafted ROYALS Jaipur boutique creation.');
     setProdImages([]);
-    setProdImageUrl('');
+    setProdImageRecords([]);
     setProdFeatured(false);
     setProdNewArrival(false);
-  };
-
-  const addImageUrl = () => {
-    const imageUrl = prodImageUrl.trim();
-    if (imageUrl && !prodImages.includes(imageUrl)) {
-      setProdImages((images) => [...images, imageUrl]);
-      setProdImageUrl('');
-    }
-  };
-
-  const handleProductImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files: File[] = event.target.files ? Array.from(event.target.files) : [];
-    if (!files.length) return;
-    const invalid = files.find((file) => !file.type.startsWith('image/') || file.size > 3 * 1024 * 1024);
-    if (invalid) {
-      alert('Please choose image files smaller than 3 MB each.');
-      event.target.value = '';
-      return;
-    }
-
-    const dataUrls = await Promise.all(files.map((file) => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
-      reader.readAsDataURL(file);
-    })));
-    setProdImages((images) => [...images, ...dataUrls]);
-    event.target.value = '';
-  };
-
-  const moveProductImage = (index: number, direction: -1 | 1) => {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= prodImages.length) return;
-    setProdImages((images) => {
-      const next = [...images];
-      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
-      return next;
-    });
   };
 
   const handleDeleteProduct = async (id: string) => {
@@ -814,6 +796,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20">{coupons.length}</span>
                 </button>
+
+                <button
+                  onClick={() => { setActiveTab('banners'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                    activeTab === 'banners' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <ImageIcon className="w-4 h-4" />
+                    <span>Banner Images</span>
+                  </div>
+                </button>
               </nav>
 
               <div className="p-4 border-t border-[#C5A880]/30">
@@ -1013,6 +1007,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               >
                 <Tag className="w-4 h-4" />
                 <span>Coupons ({coupons.length})</span>
+              </button>
+
+              <button
+                id="admin-tab-banners"
+                onClick={() => setActiveTab('banners')}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
+                  activeTab === 'banners' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                }`}
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span>Banners</span>
               </button>
             </nav>
 
@@ -1677,6 +1682,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
               )}
 
+              {/* ==================================================== */}
+              {/* SECTION 8: BANNER MANAGEMENT                         */}
+              {/* ==================================================== */}
+              {activeTab === 'banners' && (
+                <BannerManager />
+              )}
+
             </div>
           </div>
         )}
@@ -2191,40 +2203,28 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="block font-semibold text-[#3A3632]">Product Images</label>
-                  <label className="px-3 py-2 rounded-xl border border-[#D8CCC2] bg-white text-[#141414] cursor-pointer hover:border-[#C5A880] transition-colors">
-                    Upload Images
-                    <input type="file" accept="image/*" multiple onChange={handleProductImageUpload} className="hidden" />
-                  </label>
                 </div>
 
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={prodImageUrl}
-                    onChange={(e) => setProdImageUrl(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
-                    placeholder="Or add an image URL"
-                    className="min-w-0 flex-1 p-2.5 rounded-xl border border-[#D8CCC2] bg-white text-[#141414]"
+                {/* ── Permanent Image Manager ────────────────────────────────────
+                     When editing an existing product: shows current images from DB,
+                     supports upload/replace/delete/reorder/cover via API.
+                     When creating a new product: shows an inline note — images can
+                     be uploaded immediately after the product is saved.
+                ─────────────────────────────────────────────────────────────── */}
+                {editingProductId ? (
+                  <AdminImageManager
+                    productId={editingProductId}
+                    initialImages={prodImageRecords}
+                    onImagesChanged={(records) => {
+                      setProdImageRecords(records);
+                      setProdImages(records.map((r) => r.image_url));
+                    }}
                   />
-                  <button type="button" onClick={addImageUrl} className="px-3 py-2 bg-[#141414] text-white rounded-xl font-semibold">Add</button>
-                </div>
-
-                {prodImages.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {prodImages.map((image, index) => (
-                      <div key={`${image.slice(0, 40)}-${index}`} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-[#D8CCC2] bg-white">
-                        <img src={image} alt={`Product image ${index + 1}`} className="w-full h-full object-cover object-top" />
-                        {index === 0 && <span className="absolute top-2 left-2 px-2 py-1 rounded bg-[#141414] text-white text-[9px] font-bold">Cover</span>}
-                        <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1">
-                          <button type="button" disabled={index === 0} onClick={() => moveProductImage(index, -1)} className="flex-1 py-1 bg-white/95 text-[#141414] text-xs rounded disabled:opacity-40">←</button>
-                          <button type="button" disabled={index === prodImages.length - 1} onClick={() => moveProductImage(index, 1)} className="flex-1 py-1 bg-white/95 text-[#141414] text-xs rounded disabled:opacity-40">→</button>
-                          <button type="button" onClick={() => setProdImages((images) => images.filter((_, imageIndex) => imageIndex !== index))} className="flex-1 py-1 bg-red-700 text-white text-xs rounded">×</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 ) : (
-                  <p className="p-3 rounded-xl border border-dashed border-[#D8CCC2] text-[#706B65]">Upload or add images. The first image becomes the customer-facing cover.</p>
+                  <div className="p-4 border border-dashed border-[#D8CCC2] rounded-xl bg-[#FAF8F5] text-center text-xs text-[#706B65] space-y-1">
+                    <p className="font-medium text-[#3A3632]">Save the product first, then upload images.</p>
+                    <p>After clicking "Publish to ROYALS Catalog" the product will appear in your catalog. Open it with Edit to add images via the permanent image manager.</p>
+                  </div>
                 )}
               </div>
 
