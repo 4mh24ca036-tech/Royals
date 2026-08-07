@@ -125,8 +125,8 @@ router.post('/', async (req, res) => {
         grandTotal,
         couponCode || null,
         paymentMethod || 'UPI',
-        paymentMethod === 'Cash on Delivery' ? 'PENDING' : 'PAID',
-        'Preparing Order', // Initial state upon successful payment confirmation
+        'PENDING', // Always PENDING initially until admin verifies payment
+        'Awaiting Payment Verification', // Initial state - requires admin verification
         'Blue Dart Apex Luxury',
         estDeliveryStr,
         now.toISOString(),
@@ -161,7 +161,7 @@ router.post('/', async (req, res) => {
       db.run('UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?', [Number(item.quantity), item.productId]);
     }
 
-    // Insert Payment Record
+    // Insert Payment Record (status PENDING until admin verification)
     const paymentId = `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const txnId = `TXN-RYL-${Date.now().toString().slice(-7)}`;
     const gatewayRef = `PG-${paymentMethod.toUpperCase().slice(0, 3)}-${Math.floor(10000000 + Math.random() * 90000000)}`;
@@ -176,70 +176,21 @@ router.post('/', async (req, res) => {
         txnId,
         gatewayRef,
         grandTotal,
-        paymentMethod === 'Cash on Delivery' ? 'PENDING' : 'SUCCESS',
+        'PENDING', // Always PENDING until admin verifies payment screenshot
         now.toISOString()
       ]
     );
 
-    // Insert Order Status History: Stage 1 - Order Placed
+    // Insert Order Status History: Stage 1 - Order Placed (Awaiting Payment Verification)
     db.run(
       `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         `hist_${orderId}_1`,
         orderId,
-        'Order Placed',
-        `Order ${orderNumber} placed by ${customerName}`,
+        'Awaiting Payment Verification',
+        `Order ${orderNumber} placed by ${customerName}. Payment verification pending via WhatsApp.`,
         'Customer',
-        dateStr,
-        timeStr,
-        now.toISOString()
-      ]
-    );
-
-    // Stage 2 - Payment Confirmed (or COD Registered)
-    if (paymentMethod !== 'Cash on Delivery') {
-      db.run(
-        `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-        [
-          `hist_${orderId}_2`,
-          orderId,
-          'Payment Confirmed',
-          `Payment of ₹${grandTotal.toLocaleString('en-IN')} received via ${paymentMethod} (Ref: ${gatewayRef})`,
-          'Payment Gateway',
-          dateStr,
-          timeStr,
-          now.toISOString()
-        ]
-      );
-    } else {
-      db.run(
-        `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-        [
-          `hist_${orderId}_2`,
-          orderId,
-          'Payment Confirmed',
-          `Cash on Delivery verified with OTP. Payment of ₹${grandTotal.toLocaleString('en-IN')} due on arrival.`,
-          'Cash on Delivery Desk',
-          dateStr,
-          timeStr,
-          now.toISOString()
-        ]
-      );
-    }
-
-    // Stage 3 - Preparing Order
-    db.run(
-      `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        `hist_${orderId}_3`,
-        orderId,
-        'Preparing Order',
-        'Atelier Jaipur artisans assigned for handloom finishing, embroidery verification and heirloom packing.',
-        'Atelier Director',
         dateStr,
         timeStr,
         now.toISOString()
@@ -254,8 +205,8 @@ router.post('/', async (req, res) => {
         `notif_${orderId}_created`,
         userId || 'guest_user',
         orderId,
-        'Order Confirmed & Placed',
-        `📦 Your order is being prepared. Order #${orderNumber} (₹${grandTotal.toLocaleString('en-IN')}) expected by ${estDeliveryStr}.`,
+        'Order Placed - Awaiting Payment Verification',
+        `📦 Order #${orderNumber} placed successfully (₹${grandTotal.toLocaleString('en-IN')}). Please send payment screenshot via WhatsApp for verification. Expected delivery: ${estDeliveryStr}.`,
         'order_placed',
         0,
         now.toISOString()
@@ -344,7 +295,7 @@ router.get('/track/:query', async (req, res) => {
 
     // Define standard 7 sequential non-cancelled stages
     const standardStages = [
-      { key: 'Order Placed', aliases: ['Order Placed'], label: 'Order Placed', desc: 'Order verified & recorded in Jaipur Atelier' },
+      { key: 'Awaiting Payment Verification', aliases: ['Awaiting Payment Verification'], label: 'Awaiting Payment Verification', desc: 'Order placed, awaiting payment verification via WhatsApp' },
       { key: 'Payment Confirmed', aliases: ['Payment Confirmed'], label: 'Payment Confirmed', desc: 'Payment settlement verified' },
       { key: 'Preparing Order', aliases: ['Preparing Order', 'Preparing'], label: 'Preparing Order', desc: 'Artisan hand-finishing, custom sizing & embroidery check' },
       { key: 'Packed', aliases: ['Packed'], label: 'Packed', desc: 'Inspected and securely sealed in heirloom velvet packaging' },

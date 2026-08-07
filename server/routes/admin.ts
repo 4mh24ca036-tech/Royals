@@ -142,7 +142,7 @@ router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
 
     // Canonical 8 Status distribution
     const statusCounts: Record<string, number> = {
-      'Order Placed': 0,
+      'Awaiting Payment Verification': 0,
       'Payment Confirmed': 0,
       'Preparing Order': 0,
       'Packed': 0,
@@ -251,7 +251,7 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     if (status === 'Out for Delivery') status = 'Out For Delivery';
 
     const validStatuses = [
-      'Order Placed',
+      'Awaiting Payment Verification',
       'Payment Confirmed',
       'Preparing Order',
       'Packed',
@@ -279,6 +279,12 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     // Update order status in orders table
     let updateSql = 'UPDATE orders SET order_status = ?, updated_at = ?';
     const updateParams: any[] = [status, now.toISOString()];
+
+    // If status is Payment Confirmed, also update payment_status to PAID
+    if (status === 'Payment Confirmed') {
+      updateSql += ', payment_status = ?';
+      updateParams.push('PAID');
+    }
 
     if (courierName) {
       updateSql += ', courier_name = ?';
@@ -507,7 +513,7 @@ router.get('/analytics', authenticateAdmin, async (req: Request, res: Response) 
 
     // Status breakdown
     const statusCounts: Record<string, number> = {
-      'Order Placed': 0,
+      'Awaiting Payment Verification': 0,
       'Payment Confirmed': 0,
       'Preparing Order': 0,
       'Packed': 0,

@@ -134,7 +134,7 @@ export interface Order {
   coupon_code?: string | null;
   payment_method: string;
   payment_status: 'PAID' | 'PENDING' | 'REFUNDED';
-  order_status: 'Order Placed' | 'Payment Confirmed' | 'Preparing' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+  order_status: 'Awaiting Payment Verification' | 'Payment Confirmed' | 'Preparing' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
   courier_name: string;
   estimated_delivery_date: string;
   created_at: string;

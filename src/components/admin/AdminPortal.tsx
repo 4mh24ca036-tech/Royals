@@ -53,7 +53,7 @@ interface AdminPortalProps {
 }
 
 const CANONICAL_STATUSES = [
-  'Order Placed',
+  'Awaiting Payment Verification',
   'Payment Confirmed',
   'Preparing Order',
   'Packed',
@@ -289,6 +289,69 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       await loadAdminData(true);
     } catch (err: any) {
       alert(err.message || 'Failed to update order status');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleVerifyPayment = async () => {
+    if (!selectedOrder) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await api.updateOrderStatus(selectedOrder.id, {
+        status: 'Payment Confirmed',
+        notes: 'Payment verified by admin. Order confirmed and moved to preparation.',
+        courierName: selectedOrder.courier_name || 'Blue Dart Apex Luxury',
+        trackingId: selectedOrder.tracking_id
+      });
+      setStatusSuccessMessage('Payment verified successfully! Order moved to preparation stage.');
+      setSelectedOrder(res.order);
+      setNewStatus('Payment Confirmed');
+      await loadAdminData(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to verify payment');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleRejectPayment = async () => {
+    if (!selectedOrder) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await api.updateOrderStatus(selectedOrder.id, {
+        status: 'Cancelled',
+        notes: 'Payment rejected by admin. Customer requested cancellation.',
+        courierName: selectedOrder.courier_name,
+        trackingId: selectedOrder.tracking_id
+      });
+      setStatusSuccessMessage('Payment rejected and order cancelled.');
+      setSelectedOrder(res.order);
+      setNewStatus('Cancelled');
+      await loadAdminData(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to reject payment');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await api.updateOrderStatus(selectedOrder.id, {
+        status: 'Cancelled',
+        notes: 'Order cancelled by customer request.',
+        courierName: selectedOrder.courier_name,
+        trackingId: selectedOrder.tracking_id
+      });
+      setStatusSuccessMessage('Order cancelled successfully.');
+      setSelectedOrder(res.order);
+      setNewStatus('Cancelled');
+      await loadAdminData(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to cancel order');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -1601,6 +1664,50 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* PAYMENT VERIFICATION QUICK ACTIONS (Only for Awaiting Payment Verification) */}
+              {selectedOrder.order_status === 'Awaiting Payment Verification' && (
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-amber-200 pb-3">
+                    <ShieldCheck className="w-4 h-4 text-amber-600" />
+                    <h4 className="font-serif font-bold text-sm text-amber-900">
+                      Payment Verification Required
+                    </h4>
+                  </div>
+                  <p className="text-xs text-amber-800">
+                    Customer has placed order #{selectedOrder.order_number} and sent payment screenshot via WhatsApp. Please verify payment and update status.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={handleVerifyPayment}
+                      disabled={isUpdatingStatus}
+                      className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs uppercase tracking-widest font-bold rounded-xl transition-all cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Verify Payment</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRejectPayment}
+                      disabled={isUpdatingStatus}
+                      className="py-3 bg-red-600 hover:bg-red-700 text-white text-xs uppercase tracking-widest font-bold rounded-xl transition-all cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Reject Payment</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelOrder}
+                      disabled={isUpdatingStatus}
+                      className="py-3 bg-gray-600 hover:bg-gray-700 text-white text-xs uppercase tracking-widest font-bold rounded-xl transition-all cursor-pointer shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Cancel Order</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* ORDER STATUS UPDATE FORM */}
               <form onSubmit={handleUpdateOrderStatus} className="p-5 rounded-2xl bg-white border border-[#E8DFD8] space-y-4">

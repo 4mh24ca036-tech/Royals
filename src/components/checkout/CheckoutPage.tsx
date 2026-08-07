@@ -118,9 +118,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // ORDER CONFIRMED VIEW
   if (step === 'success' && createdOrder) {
     const whatsappUrl = `https://wa.me/918000461784?text=${encodeURIComponent(
-      `Hello ROYALS Atelier, my order #${createdOrder.order_number} for ₹${createdOrder.grand_total.toLocaleString(
-        'en-IN'
-      )} has been placed. Please share custom fitting and dispatch updates.`
+      `Hello ROYALS,\n\nI have placed an order.\n\nOrder ID: ${createdOrder.order_number}\nTracking ID: ${createdOrder.tracking_id}\n\nI have attached:\n• Receipt PDF\n• Payment Screenshot\n\nPlease verify my payment.`
     )}`;
 
     return (
@@ -162,60 +160,39 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             </div>
           </div>
 
-          {/* Three PDF Download Buttons */}
+          {/* Download Receipt PDF Button */}
           <div className="space-y-3">
             <span className="text-[10px] uppercase font-cinzel font-medium tracking-[0.25em] text-[#8E8A81] block">
-              Official Atelier Documentation
+              Official Receipt Documentation
             </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                onClick={() => downloadInvoicePdf(createdOrder)}
-                className="p-3.5 bg-[#FAF9F6] hover:bg-[#F5F2ED] border border-[#E5E1D8] text-[#1A1A1A] text-[11px] uppercase tracking-wider font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Tax Invoice</span>
-              </button>
-
-              <button
-                onClick={() => downloadPaymentReceiptPdf(createdOrder)}
-                className="p-3.5 bg-[#FAF9F6] hover:bg-[#F5F2ED] border border-[#E5E1D8] text-[#1A1A1A] text-[11px] uppercase tracking-wider font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Receipt className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Payment Receipt</span>
-              </button>
-
-              <button
-                onClick={() => downloadOrderSummaryPdf(createdOrder)}
-                className="p-3.5 bg-[#FAF9F6] hover:bg-[#F5F2ED] border border-[#E5E1D8] text-[#1A1A1A] text-[11px] uppercase tracking-wider font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Order Dossier</span>
-              </button>
-            </div>
+            <button
+              onClick={() => downloadInvoicePdf(createdOrder)}
+              className="w-full p-4 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[11px] uppercase tracking-wider font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
+            >
+              <Download className="w-4 h-4 text-[#C5A059]" />
+              <span>Download Receipt PDF</span>
+            </button>
           </div>
 
-          {/* WhatsApp Concierge Banner */}
-          <div className="p-6 bg-[#F5F2ED] border border-[#E5E1D8] flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-[#1A1A1A] font-medium text-xs uppercase tracking-wider">
-                <MessageCircle className="w-4 h-4 text-[#C5A059]" />
-                <span>Jaipur Atelier Stylist Concierge</span>
-              </div>
-              <p className="text-xs text-[#6B6658] font-light">
-                Receive live tailoring photos, custom blouse sleeve adjustments, and priority transit updates on WhatsApp.
-              </p>
-            </div>
+          {/* WhatsApp Inquiry Button */}
+          <div className="space-y-3">
+            <span className="text-[10px] uppercase font-cinzel font-medium tracking-[0.25em] text-[#8E8A81] block">
+              Payment Verification
+            </span>
 
             <a
               href={whatsappUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white font-medium text-[10px] uppercase tracking-[0.2em] shrink-0 transition-colors flex items-center gap-2 shadow-sm"
+              className="w-full p-4 bg-[#25D366] hover:bg-[#128C7E] text-white text-[11px] uppercase tracking-wider font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
             >
-              <MessageCircle className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Chat on WhatsApp</span>
+              <MessageCircle className="w-4 h-4 text-white" />
+              <span>Inquire on WhatsApp</span>
             </a>
+            <p className="text-[10px] text-[#6B6658] font-light">
+              Send receipt PDF and payment screenshot for verification
+            </p>
           </div>
 
           {/* Action CTAs */}
@@ -659,8 +636,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     disabled={isSubmitting}
                     className="px-8 py-3 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-[0.2em] font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
                   >
-                    <Lock className="w-3.5 h-3.5 text-[#C5A059]" />
-                    <span>{isSubmitting ? 'Authenticating Order...' : `Pay ₹${grandTotal.toLocaleString('en-IN')}`}</span>
+                    <Receipt className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>{isSubmitting ? 'Generating Receipt...' : 'Generate Official Receipt'}</span>
                   </button>
                 </div>
 
