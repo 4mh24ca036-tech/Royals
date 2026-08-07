@@ -142,6 +142,7 @@ router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
 
     // Canonical 8 Status distribution
     const statusCounts: Record<string, number> = {
+      'Order Placed': 0,
       'Awaiting Payment Verification': 0,
       'Payment Confirmed': 0,
       'Preparing Order': 0,
@@ -251,6 +252,7 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     if (status === 'Out for Delivery') status = 'Out For Delivery';
 
     const validStatuses = [
+      'Order Placed',
       'Awaiting Payment Verification',
       'Payment Confirmed',
       'Preparing Order',
@@ -280,10 +282,15 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     let updateSql = 'UPDATE orders SET order_status = ?, updated_at = ?';
     const updateParams: any[] = [status, now.toISOString()];
 
-    // If status is Payment Confirmed, also update payment_status to PAID
-    if (status === 'Payment Confirmed') {
+    // Keep the order and its payment record synchronized as fulfillment progresses.
+    if (status === 'Payment Confirmed' || status === 'Preparing Order') {
       updateSql += ', payment_status = ?';
       updateParams.push('PAID');
+      db.run('UPDATE payments SET status = ? WHERE order_id = ?', ['PAID', order.id]);
+    } else if (status === 'Cancelled') {
+      updateSql += ', payment_status = ?';
+      updateParams.push('CANCELLED');
+      db.run('UPDATE payments SET status = ? WHERE order_id = ?', ['CANCELLED', order.id]);
     }
 
     if (courierName) {

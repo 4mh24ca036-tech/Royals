@@ -31,6 +31,7 @@ import { ProductDetailModal } from './components/product/ProductDetailModal';
 // Cart & Checkout
 import { CartDrawer } from './components/cart/CartDrawer';
 import { CheckoutPage } from './components/checkout/CheckoutPage';
+import { ReceiptPage } from './components/checkout/ReceiptPage';
 
 // Tracking & Profile
 import { OrderTrackingView } from './components/tracking/OrderTrackingView';
@@ -46,7 +47,8 @@ import { Sparkles, MessageCircle, Phone, ArrowRight, Star } from 'lucide-react';
 
 function RoyalsApp() {
   // Navigation & View States
-  const [currentView, setCurrentView] = useState<'home' | 'shop' | 'tracking' | 'checkout'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'shop' | 'tracking' | 'checkout' | 'receipt'>('home');
+  const [receiptOrderId, setReceiptOrderId] = useState<string>('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
@@ -85,10 +87,12 @@ function RoyalsApp() {
   useEffect(() => {
     loadInitialData();
 
-    // Check for admin route in URL pathname or hash
-    const checkAdminRoute = () => {
+    // Check for admin or receipt route in URL
+    const checkRoutes = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
+      const search = window.location.search;
+
       if (
         path === '/admin' || 
         path === '/royals-admin' || 
@@ -96,12 +100,19 @@ function RoyalsApp() {
         hash === '#royals-admin'
       ) {
         setIsAdminPortalOpen(true);
+      } else if (path === '/receipt' || search.includes('id=')) {
+        const params = new URLSearchParams(search);
+        const orderIdParam = params.get('id') || params.get('orderId');
+        if (orderIdParam) {
+          setReceiptOrderId(orderIdParam);
+        }
+        setCurrentView('receipt');
       }
     };
 
-    checkAdminRoute();
-    window.addEventListener('popstate', checkAdminRoute);
-    window.addEventListener('hashchange', checkAdminRoute);
+    checkRoutes();
+    window.addEventListener('popstate', checkRoutes);
+    window.addEventListener('hashchange', checkRoutes);
 
     // Atelier staff keyboard shortcut: Ctrl+Shift+A or Alt+A
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -113,8 +124,8 @@ function RoyalsApp() {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener('popstate', checkAdminRoute);
-      window.removeEventListener('hashchange', checkAdminRoute);
+      window.removeEventListener('popstate', checkRoutes);
+      window.removeEventListener('hashchange', checkRoutes);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
@@ -264,6 +275,18 @@ function RoyalsApp() {
         {currentView === 'checkout' && (
           <CheckoutPage
             onBackToShopping={() => setCurrentView('shop')}
+            onTrackOrder={handleTrackOrder}
+          />
+        )}
+
+        {/* VIEW 5: STANDALONE OFFICIAL RECEIPT */}
+        {currentView === 'receipt' && (
+          <ReceiptPage
+            orderId={receiptOrderId}
+            onBackToShopping={() => {
+              setCurrentView('shop');
+              window.history.pushState({}, '', '/');
+            }}
             onTrackOrder={handleTrackOrder}
           />
         )}

@@ -124,9 +124,9 @@ router.post('/', async (req, res) => {
         deliveryFee,
         grandTotal,
         couponCode || null,
-        paymentMethod || 'UPI',
-        'PENDING', // Always PENDING initially until admin verifies payment
-        'Awaiting Payment Verification', // Initial state - requires admin verification
+        paymentMethod || 'Manual Verification',
+        'PENDING', // The admin verification workflow settles this record.
+        'Awaiting Payment Verification',
         'Blue Dart Apex Luxury',
         estDeliveryStr,
         now.toISOString(),
@@ -164,7 +164,7 @@ router.post('/', async (req, res) => {
     // Insert Payment Record (status PENDING until admin verification)
     const paymentId = `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const txnId = `TXN-RYL-${Date.now().toString().slice(-7)}`;
-    const gatewayRef = `PG-${paymentMethod.toUpperCase().slice(0, 3)}-${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const gatewayRef = `GW-REF-${Math.floor(100000 + Math.random() * 900000)}`;
 
     db.run(
       `INSERT INTO payments (id, order_id, payment_method, transaction_id, gateway_ref, amount, status, paid_at)
@@ -172,16 +172,16 @@ router.post('/', async (req, res) => {
       [
         paymentId,
         orderId,
-        paymentMethod,
+        paymentMethod || 'Manual Verification',
         txnId,
         gatewayRef,
         grandTotal,
-        'PENDING', // Always PENDING until admin verifies payment screenshot
+        'PENDING', // The payment receipt and screenshot await admin verification.
         now.toISOString()
       ]
     );
 
-    // Insert Order Status History: Stage 1 - Order Placed (Awaiting Payment Verification)
+    // Insert Order Status History: Stage 1 - Awaiting Payment Verification
     db.run(
       `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -189,7 +189,7 @@ router.post('/', async (req, res) => {
         `hist_${orderId}_1`,
         orderId,
         'Awaiting Payment Verification',
-        `Order ${orderNumber} placed by ${customerName}. Payment verification pending via WhatsApp.`,
+        `Order ${orderNumber} placed by ${customerName}. Awaiting receipt and payment verification via WhatsApp.`,
         'Customer',
         dateStr,
         timeStr,
@@ -205,8 +205,8 @@ router.post('/', async (req, res) => {
         `notif_${orderId}_created`,
         userId || 'guest_user',
         orderId,
-        'Order Placed - Awaiting Payment Verification',
-        `📦 Order #${orderNumber} placed successfully (₹${grandTotal.toLocaleString('en-IN')}). Please send payment screenshot via WhatsApp for verification. Expected delivery: ${estDeliveryStr}.`,
+        'Order Placed - Awaiting Verification',
+        `📦 Order #${orderNumber} placed successfully (₹${grandTotal.toLocaleString('en-IN')}). Please send the receipt and payment screenshot via WhatsApp for verification. Expected delivery: ${estDeliveryStr}.`,
         'order_placed',
         0,
         now.toISOString()
@@ -293,9 +293,9 @@ router.get('/track/:query', async (req, res) => {
     const items = queryAll(db, 'SELECT * FROM order_items WHERE order_id = ?', [order.id]);
     const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [order.id]);
 
-    // Define standard 7 sequential non-cancelled stages
+    // Define standard 7 sequential non-cancelled stages.
     const standardStages = [
-      { key: 'Awaiting Payment Verification', aliases: ['Awaiting Payment Verification'], label: 'Awaiting Payment Verification', desc: 'Order placed, awaiting payment verification via WhatsApp' },
+      { key: 'Awaiting Payment Verification', aliases: ['Awaiting Payment Verification'], label: 'Awaiting Payment Verification', desc: 'Order placed; receipt and payment verification are pending via WhatsApp' },
       { key: 'Payment Confirmed', aliases: ['Payment Confirmed'], label: 'Payment Confirmed', desc: 'Payment settlement verified' },
       { key: 'Preparing Order', aliases: ['Preparing Order', 'Preparing'], label: 'Preparing Order', desc: 'Artisan hand-finishing, custom sizing & embroidery check' },
       { key: 'Packed', aliases: ['Packed'], label: 'Packed', desc: 'Inspected and securely sealed in heirloom velvet packaging' },

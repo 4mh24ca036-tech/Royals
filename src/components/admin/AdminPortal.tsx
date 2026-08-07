@@ -38,7 +38,12 @@ import {
   BarChart3,
   CreditCard,
   MapPin,
-  Check
+  Check,
+  Menu,
+  User,
+  Crown,
+  XCircle,
+  Settings
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { api } from '../../services/api';
@@ -53,6 +58,7 @@ interface AdminPortalProps {
 }
 
 const CANONICAL_STATUSES = [
+  'Order Placed',
   'Awaiting Payment Verification',
   'Payment Confirmed',
   'Preparing Order',
@@ -79,8 +85,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Admin active section tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'customers' | 'analytics' | 'inventory' | 'coupons'>('dashboard');
+  // Admin active section tab (Products default after login per requirements)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'customers' | 'analytics' | 'inventory' | 'coupons'>('products');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   // Loaded data states
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -546,27 +553,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       <div className="relative w-full max-w-7xl h-[94vh] bg-[#FAF8F5] rounded-3xl shadow-2xl border border-[#C5A880]/40 overflow-hidden flex flex-col">
         
         {/* Top Operations Command Header */}
-        <header className="px-5 py-4 bg-[#141414] text-white border-b border-[#C5A880]/30 flex flex-wrap items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[#242424] border border-[#C5A880]/60 flex items-center justify-center text-[#C5A880] shadow-md">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-base sm:text-lg font-serif font-bold tracking-wide text-[#FAF8F5]">
-                  ROYALS Atelier Operations
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#C5A880] text-[#121212] text-[9px] font-bold uppercase tracking-wider">
-                  Production Admin
-                </span>
-                <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  LIVE Atelier Sync
-                </span>
+        <header className="px-5 py-4 bg-[#141414] text-white border-b border-[#C5A880]/30 flex items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-3">
+            {isAdminAuthenticated && (
+              <button
+                id="admin-sidebar-toggle-btn"
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 rounded-xl bg-[#242424] hover:bg-[#333] text-[#C5A880] border border-[#C5A880]/40 transition-colors cursor-pointer"
+                title="Open Admin Sidebar Navigation"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            )}
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#242424] border border-[#C5A880]/60 flex items-center justify-center text-[#C5A880] shadow-md">
+                <Crown className="w-5 h-5 text-[#C5A880]" />
               </div>
-              <p className="text-[11px] text-[#A89F91]">
-                Jaipur Atelier & Fulfillment HQ • Server Time: <span className="font-mono text-[#FAF8F5]">{currentTime || '04:15:00 PM'}</span>
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-serif font-bold tracking-wide text-[#FAF8F5]">
+                    ROYALS Admin
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-[#C5A880] text-[#121212] text-[9px] font-bold uppercase tracking-wider">
+                    Shopify Suite
+                  </span>
+                </div>
+                <p className="text-[10px] text-[#A89F91] hidden sm:block">
+                  Atelier HQ • <span className="font-mono text-[#FAF8F5]">{currentTime || '04:15:00 PM'}</span>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -593,13 +609,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   className="px-3 py-1.5 rounded-xl bg-[#242424] hover:bg-[#333] text-xs text-[#E8DFD8] border border-[#C5A880]/30 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-[#C5A880] ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Sync Data</span>
+                  <span className="hidden sm:inline">Sync</span>
                 </button>
 
-                <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-[#242424] rounded-xl border border-[#333] text-xs">
-                  <div className="w-2 h-2 rounded-full bg-[#C5A880]"></div>
-                  <span className="text-[#E8DFD8] font-medium">{admin?.name || 'Atelier Director'}</span>
-                  <span className="text-[10px] text-[#A89F91] uppercase">({admin?.role || 'Admin'})</span>
+                {/* Profile Widget */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#242424] rounded-xl border border-[#C5A880]/40 text-xs">
+                  <User className="w-3.5 h-3.5 text-[#C5A880]" />
+                  <span className="text-[#E8DFD8] font-semibold">{admin?.name || 'Profile'}</span>
                 </div>
 
                 <button
@@ -627,6 +643,129 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </button>
           </div>
         </header>
+
+        {/* SLIDE-OUT SIDEBAR NAVIGATION DRAWER */}
+        {isAdminAuthenticated && isSidebarOpen && (
+          <div className="absolute inset-0 z-50 flex">
+            {/* Backdrop Overlay */}
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+
+            {/* Sidebar Drawer */}
+            <aside className="relative w-72 max-w-[80vw] bg-[#141414] text-white h-full shadow-2xl border-r border-[#C5A880]/40 flex flex-col z-10 animate-in slide-in-from-left duration-200">
+              <div className="p-5 border-b border-[#C5A880]/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Crown className="w-5 h-5 text-[#C5A880]" />
+                  <h3 className="font-serif font-bold text-lg text-white">ROYALS Admin</h3>
+                </div>
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-1 text-[#A89F91] hover:text-white rounded-lg hover:bg-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Profile Card in Sidebar */}
+              <div className="p-4 m-3 rounded-2xl bg-[#242424] border border-[#333] flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#C5A880] text-[#C5A880] flex items-center justify-center font-bold">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#E8DFD8]">{admin?.name || 'Atelier Director'}</h4>
+                  <p className="text-[10px] text-[#A89F91]">{admin?.email || 'admin@royals.com'}</p>
+                </div>
+              </div>
+
+              {/* Sidebar Menu Items */}
+              <nav className="p-3 space-y-1 flex-1 overflow-y-auto font-medium text-xs">
+                <button
+                  onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${
+                    activeTab === 'dashboard' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('products'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                    activeTab === 'products' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Package className="w-4 h-4" />
+                    <span>Products</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20">{products.length}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                    activeTab === 'orders' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Orders</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20">{orders.length}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('customers'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                    activeTab === 'customers' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Users className="w-4 h-4" />
+                    <span>Customers</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20">{customers.length}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${
+                    activeTab === 'analytics' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Reports & Analytics</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('coupons'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                    activeTab === 'coupons' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-4 h-4" />
+                    <span>Settings & Coupons</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20">{coupons.length}</span>
+                </button>
+              </nav>
+
+              <div className="p-4 border-t border-[#C5A880]/30">
+                <button
+                  onClick={() => { logout(); setIsSidebarOpen(false); }}
+                  className="w-full p-3 rounded-xl bg-red-950/50 hover:bg-red-900 text-red-200 flex items-center justify-center gap-2 cursor-pointer font-bold"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
 
         {/* ---------------------------------------------------- */}
         {/* VIEW 1: NOT AUTHENTICATED -> LUXURY LOGIN SCREEN     */}
@@ -1601,6 +1740,73 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#706B65]">Estimated Delivery:</span>
                     <span className="font-bold text-[#8C785A]">{selectedOrder.estimated_delivery_date}</span>
+                  </div>
+
+                  {/* Explicit Order Action Buttons */}
+                  <div className="pt-2 border-t border-[#E8DFD8] flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.updateOrderStatus(selectedOrder.id, {
+                            status: 'Payment Confirmed',
+                            notes: 'Payment verified and confirmed by Atelier Director.'
+                          });
+                          setSelectedOrder(res.order);
+                          setStatusSuccessMessage('Payment verified & status set to Payment Confirmed!');
+                          await loadAdminData(true);
+                        } catch (err: any) {
+                          alert(err.message || 'Failed to verify payment');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold uppercase rounded-xl flex items-center gap-1 cursor-pointer"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Verify Payment</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.updateOrderStatus(selectedOrder.id, {
+                            status: 'Awaiting Payment Verification',
+                            notes: 'Payment verification rejected. Customer requested to submit valid receipt.'
+                          });
+                          setSelectedOrder(res.order);
+                          setStatusSuccessMessage('Payment rejected. Consignment marked as Awaiting Payment Verification.');
+                          await loadAdminData(true);
+                        } catch (err: any) {
+                          alert(err.message || 'Failed to reject payment');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold uppercase rounded-xl flex items-center gap-1 cursor-pointer"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Reject Payment</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm('Are you sure you want to cancel this order?')) return;
+                        try {
+                          const res = await api.updateOrderStatus(selectedOrder.id, {
+                            status: 'Cancelled',
+                            notes: 'Order cancelled by Atelier Admin.'
+                          });
+                          setSelectedOrder(res.order);
+                          setStatusSuccessMessage('Consignment cancelled successfully.');
+                          await loadAdminData(true);
+                        } catch (err: any) {
+                          alert(err.message || 'Failed to cancel order');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-red-800 hover:bg-red-900 text-white text-[10px] font-bold uppercase rounded-xl flex items-center gap-1 cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Cancel Order</span>
+                    </button>
                   </div>
                 </div>
 
