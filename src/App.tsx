@@ -20,7 +20,6 @@ import { MobileBottomNav } from './components/layout/MobileBottomNav';
 // Home Components
 import { HeroCarousel } from './components/home/HeroCarousel';
 import { HeritageStory } from './components/home/HeritageStory';
-import { CategoryShowcase } from './components/home/CategoryShowcase';
 import { BespokeAtelierCTA } from './components/home/BespokeAtelierCTA';
 import { ProductCard } from './components/product/ProductCard';
 
@@ -196,13 +195,7 @@ function RoyalsApp() {
             {/* 2. Heritage Story of Jaipur Atelier */}
             <HeritageStory onOpenStoreModal={() => setIsStoreModalOpen(true)} />
 
-            {/* 3. Couture Category Showcase */}
-            <CategoryShowcase
-              categories={categories}
-              onSelectCategory={(catId) => handleSelectCategory(catId)}
-            />
-
-            {/* 4. Curated Masterpieces Grid */}
+            {/* 3. Curated Masterpieces Grid */}
             <section className="py-20 bg-white border-y border-[#E8DFD8]">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
@@ -241,12 +234,12 @@ function RoyalsApp() {
               </div>
             </section>
 
-            {/* 5. Bespoke Bridal Appointments & WhatsApp CTA */}
+            {/* 4. Bespoke Bridal Appointments & WhatsApp CTA */}
             <BespokeAtelierCTA onOpenStoreModal={() => setIsStoreModalOpen(true)} />
           </div>
         )}
 
-        {/* VIEW 2: PRODUCT LISTING / ARCHIVE VIEW */}
+        {/* VIEW 2: PRODUCT LISTING / SHOP VIEW */}
         {currentView === 'shop' && (
           <ProductListingView
             products={products}

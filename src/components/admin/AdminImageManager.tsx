@@ -10,7 +10,9 @@ import {
   RefreshCw,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  Cloud,
+  AlertTriangle
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -25,6 +27,13 @@ export interface ImageRecord {
   alt_text: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface ImageStatus {
+  isWorking: boolean;
+  isCloudinary: boolean;
+  isMissing: boolean;
+  isLoading?: boolean;
 }
 
 interface AdminImageManagerProps {
@@ -85,6 +94,48 @@ async function replaceImage(imageId: string, file: File): Promise<{ image: Image
   return adminFetch(`/api/images/${imageId}`, { method: 'PATCH', body: form });
 }
 
+// ── Image Status Detection ────────────────────────────────────────────────
+
+/**
+ * Checks if an image URL is:
+ * - Working (loads successfully)
+ * - Cloudinary (hosted on res.cloudinary.com)
+ * - Missing (404 or fails to load)
+ */
+function getImageStatus(imageUrl: string): ImageStatus {
+  const isCloudinary = imageUrl.includes('res.cloudinary.com');
+  
+  return {
+    isWorking: true,  // Assume working until proven otherwise
+    isCloudinary,
+    isMissing: false,
+    isLoading: false
+  };
+}
+
+/**
+ * Validate image URL by attempting to load it
+ */
+async function validateImageUrl(imageUrl: string): Promise<ImageStatus> {
+  const isCloudinary = imageUrl.includes('res.cloudinary.com');
+  
+  try {
+    const response = await fetch(imageUrl, { method: 'HEAD', mode: 'no-cors' });
+    // With no-cors, we can't check response.ok, so we assume success if fetch completes
+    return {
+      isWorking: true,
+      isCloudinary,
+      isMissing: false
+    };
+  } catch (e) {
+    return {
+      isWorking: false,
+      isCloudinary,
+      isMissing: true
+    };
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 
 export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
@@ -93,6 +144,7 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
   onImagesChanged
 }) => {
   const [images, setImages] = useState<ImageRecord[]>(initialImages);
+  const [imageStatuses, setImageStatuses] = useState<Record<string, ImageStatus>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +162,24 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Validate images on load
+  React.useEffect(() => {
+    if (images.length === 0) {
+      setImageStatuses({});
+      return;
+    }
+
+    const validateAllImages = async () => {
+      const statuses: Record<string, ImageStatus> = {};
+      for (const img of images) {
+        statuses[img.id] = await validateImageUrl(img.image_url);
+      }
+      setImageStatuses(statuses);
+    };
+
+    validateAllImages();
+  }, [images]);
 
   const notify = (msg: string, type: 'success' | 'error') => {
     if (type === 'success') {
@@ -379,7 +449,31 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
             Drag rows to reorder · First image = cover
           </p>
           <div className="space-y-2">
-            {images.map((img, idx) => (
+            {images.map((img, idx) => {
+              const status = imageStatuses[img.id];
+              const statusIcon = img.is_cover ? (
+                <div className="flex items-center gap-0.5 text-[#C5A059] text-xs" title="Cover image">
+                  <Star className="w-3 h-3 fill-current" />
+                  <span className="font-medium">★</span>
+                </div>
+              ) : status?.isCloudinary ? (
+                <div className="flex items-center gap-0.5 text-blue-600 text-xs" title="Cloudinary hosted">
+                  <Cloud className="w-3 h-3" />
+                  <span className="font-medium">☁</span>
+                </div>
+              ) : status?.isMissing ? (
+                <div className="flex items-center gap-0.5 text-red-600 text-xs" title="Image missing or broken">
+                  <AlertTriangle className="w-3 h-3" />
+                  <span className="font-medium">⚠</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-0.5 text-emerald-600 text-xs" title="Working">
+                  <CheckCircle className="w-3 h-3" />
+                  <span className="font-medium">✓</span>
+                </div>
+              );
+
+              return (
               <div
                 key={img.id}
                 draggable
@@ -411,17 +505,14 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
                   />
                 </div>
 
-                {/* Info */}
+                {/* Info with Status Badge */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-[#1A1A1A] font-medium truncate">
-                    {img.is_cover && (
-                      <span className="inline-flex items-center gap-0.5 text-[#C5A059] mr-1">
-                        <Star className="w-2.5 h-2.5 fill-current" />
-                        Cover ·
-                      </span>
-                    )}
-                    {img.image_url.split('/').pop()}
-                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    {statusIcon}
+                    <p className="text-[10px] text-[#1A1A1A] font-medium truncate">
+                      {img.image_url.split('/').pop()}
+                    </p>
+                  </div>
                   <p className="text-[9px] text-[#8E8A81]">Position {idx + 1}</p>
                 </div>
 
@@ -473,7 +564,8 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

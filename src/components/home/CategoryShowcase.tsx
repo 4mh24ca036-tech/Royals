@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Category } from '../../types';
 
@@ -11,6 +11,21 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
   categories,
   onSelectCategory
 }) => {
+  // Detect mobile viewport for responsive image selection
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Image src — prefer mobile image on small screens
+  const imgSrc = (cat: Category) =>
+    isMobile && cat.mobile_image_url ? cat.mobile_image_url : cat.image_url;
+
   return (
     <section className="py-20 bg-[#FAF9F6]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
@@ -40,9 +55,9 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
               onClick={() => onSelectCategory(cat.id)}
               className="group relative h-[380px] sm:h-[420px] overflow-hidden cursor-pointer shadow-sm transition-all duration-500 hover:shadow-xl border border-[#E5E1D8] bg-[#F5F2ED]"
             >
-              {/* Image — loaded from DB; fallback to a real uploaded garment */}
+              {/* Image — loaded from DB; fallback to generic placeholder */}
               <img
-                src={cat.image_url || '/uploads/prod_boutique_01/garment-01.jpeg'}
+                src={imgSrc(cat) || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2220%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EIMAGE REQUIRED%3C/text%3E%3C/svg%3E'}
                 alt={cat.name}
                 loading="lazy"
                 decoding="async"
@@ -50,7 +65,7 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
                   const el = e.target as HTMLImageElement;
                   if (!el.dataset.fallback) {
                     el.dataset.fallback = '1';
-                    el.src = '/uploads/prod_boutique_01/garment-01.jpeg';
+                    el.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2220%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EIMAGE REQUIRED%3C/text%3E%3C/svg%3E';
                   }
                 }}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"

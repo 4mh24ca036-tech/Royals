@@ -81,7 +81,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({ onExplore 
             {orders.map((order) => (
               <div key={order.id} className="bg-white border border-[#E5E1D8] p-5 space-y-4 hover:border-[#C5A059] transition-colors">
                 <div className="flex gap-3">
-                  <img src={order.items[0]?.product_image || '/uploads/prod_boutique_01/garment-01.jpeg'} alt="" className="w-16 h-20 object-cover border border-[#E5E1D8]" />
+                  <img src={order.items[0]?.product_image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E'} alt="" className="w-16 h-20 object-cover border border-[#E5E1D8]" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-[#1A1A1A] truncate">{order.items[0]?.product_title || 'Royal Couture Ensemble'}</p>
                     <p className="text-[10px] text-[#8E8A81] mt-1">{new Date(order.created_at).toLocaleDateString('en-GB')}</p>
@@ -131,7 +131,7 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({ onExplore 
                 <h3 className="text-[10px] uppercase tracking-[0.25em] text-[#8E8A81] font-cinzel mb-3">Your Order</h3>
                 {activeOrder.items.map((item) => (
                   <div key={item.id} className="flex gap-3 py-2">
-                    <img src={item.product_image || '/uploads/prod_boutique_01/garment-01.jpeg'} alt={item.product_title} className="w-12 h-14 object-cover border border-[#E5E1D8]" />
+                    <img src={item.product_image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E'} alt={item.product_title} className="w-12 h-14 object-cover border border-[#E5E1D8]" />
                     <div className="text-xs">
                       <p className="font-medium text-[#1A1A1A]">{item.product_title}</p>
                       <p className="text-[#6B6658] mt-1">Size: {item.size} · Qty: {item.quantity}</p>

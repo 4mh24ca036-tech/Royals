@@ -102,7 +102,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: `${product.id}_${size}_${selectedColor}_${Date.now()}`,
           productId: product.id,
           title: product.title,
-          image: product.images[0] || '/uploads/prod_boutique_01/garment-01.jpeg',
+          image: product.images[0] || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E',
           price: effectivePrice,
           originalPrice: product.price,
           size,

@@ -107,7 +107,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 {/* Image */}
                 <div className="w-20 h-24 bg-[#F5F2ED] overflow-hidden shrink-0 border border-[#E5E1D8]">
                   <img
-                    src={item.image || '/uploads/prod_boutique_01/garment-01.jpeg'}
+                    src={item.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E'}
                     alt={item.title}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover object-top"

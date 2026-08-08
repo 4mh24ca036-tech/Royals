@@ -10,6 +10,14 @@ export interface Category {
 
   image_url: string;
 
+  mobile_image_url: string;
+
+  is_active: boolean;
+
+  created_at: string;
+
+  updated_at: string;
+
   display_order: number;
 
 }

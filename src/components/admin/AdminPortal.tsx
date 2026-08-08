@@ -52,6 +52,7 @@ import { AdminStats, Order, Product, Category, Coupon, InventoryItem } from '../
 import { downloadInvoicePdf, downloadPaymentReceiptPdf, downloadOrderSummaryPdf } from '../../services/pdfGenerator';
 import { AdminImageManager, type ImageRecord } from './AdminImageManager';
 import { BannerManager } from './BannerManager';
+import { CategoryManager } from './CategoryManager';
 
 interface AdminPortalProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Admin active section tab (Products default after login per requirements)
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'customers' | 'analytics' | 'inventory' | 'coupons' | 'banners'>('products');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'products' | 'customers' | 'analytics' | 'inventory' | 'coupons' | 'banners' | 'categories'>('products');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   // Loaded data states
@@ -808,6 +809,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <span>Banner Images</span>
                   </div>
                 </button>
+
+                <button
+                  onClick={() => { setActiveTab('categories'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                    activeTab === 'categories' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Layers className="w-4 h-4" />
+                    <span>Collection Categories</span>
+                  </div>
+                </button>
               </nav>
 
               <div className="p-4 border-t border-[#C5A880]/30">
@@ -1018,6 +1031,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               >
                 <ImageIcon className="w-4 h-4" />
                 <span>Banners</span>
+              </button>
+
+              <button
+                id="admin-tab-categories"
+                onClick={() => setActiveTab('categories')}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
+                  activeTab === 'categories' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Categories</span>
               </button>
             </nav>
 
@@ -1381,7 +1405,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <div className="relative aspect-4/3 bg-gray-100 overflow-hidden">
                           <img
                             referrerPolicy="no-referrer"
-                            src={p.images?.[0] || '/uploads/prod_boutique_01/garment-01.jpeg'}
+                            src={p.images?.[0] || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E'}
                             alt={p.title}
                             className="w-full h-full object-cover"
                           />
@@ -1689,6 +1713,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <BannerManager />
               )}
 
+              {/* ==================================================== */}
+              {/* SECTION 9: CATEGORY MANAGEMENT                        */}
+              {/* ==================================================== */}
+              {activeTab === 'categories' && (
+                <CategoryManager />
+              )}
+
             </div>
           </div>
         )}
@@ -1890,7 +1921,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <div className="flex items-center gap-3">
                         <img
                           referrerPolicy="no-referrer"
-                          src={item.product_image || '/uploads/prod_boutique_01/garment-01.jpeg'}
+                          src={item.product_image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E'}
                           alt={item.product_title}
                           className="w-12 h-12 object-cover rounded-xl border border-[#E8DFD8]"
                         />

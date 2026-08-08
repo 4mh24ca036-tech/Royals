@@ -7,6 +7,13 @@ coverage/
 .env*
 !.env.example
 data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Generated reports
+*-report.json
+*-report.md
 
 # Uploaded product images must be committed — they are permanent product assets.
 # Never add public/uploads/ to this ignore list.

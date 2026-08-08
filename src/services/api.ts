@@ -309,5 +309,40 @@ export const api = {
   deleteBanner: (id: string) =>
     adminRequest<{ success: boolean; message: string }>(`/banners/${id}`, {
       method: 'DELETE'
+    }),
+
+  // ── Category Management ─────────────────────────────────────────────────────
+  // Public: fetches categories (used by Navbar and filtering)
+  getCategories: () => request<Category[]>('/products/categories'),
+
+  // Admin: fetches all categories including inactive
+  getAdminCategories: () => adminRequest<any[]>('/categories/all'),
+
+  createCategory: (formData: FormData) =>
+    adminRequest<{ success: boolean; category: any }>('/categories', {
+      method: 'POST',
+      body: formData
+    }),
+
+  updateCategory: (id: string, formData: FormData) =>
+    adminRequest<{ success: boolean; category: any }>(`/categories/${id}`, {
+      method: 'PUT',
+      body: formData
+    }),
+
+  toggleCategory: (id: string) =>
+    adminRequest<{ success: boolean; category: any }>(`/categories/${id}/toggle`, {
+      method: 'PATCH'
+    }),
+
+  reorderCategories: (order: string[]) =>
+    adminRequest<{ success: boolean; categories: any[] }>('/categories/reorder', {
+      method: 'PATCH',
+      body: JSON.stringify({ order })
+    }),
+
+  deleteCategory: (id: string) =>
+    adminRequest<{ success: boolean; message: string }>(`/categories/${id}`, {
+      method: 'DELETE'
     })
 };

@@ -37,15 +37,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }
       {/* Product Image Stage */}
       <div className="relative aspect-[3/4] bg-[#F5F2ED] overflow-hidden">
         <img
-          src={product.images[0] || '/uploads/prod_boutique_01/garment-01.jpeg'}
+          src={product.images[0]}
           alt={product.title}
           loading="lazy"
           decoding="async"
           onError={(e) => {
             const el = e.target as HTMLImageElement;
-            if (!el.dataset.fallback) {
-              el.dataset.fallback = '1';
-              el.src = '/uploads/prod_boutique_01/garment-01.jpeg';
+            // Only use product's own images as fallback, never another product's image
+            if (!el.dataset.fallbackAttempt) {
+              el.dataset.fallbackAttempt = '1';
+              // Try next image for this product
+              const nextImageIndex = parseInt(el.dataset.imageIndex || '0') + 1;
+              const nextImage = product.images[nextImageIndex];
+              if (nextImage) {
+                el.dataset.imageIndex = String(nextImageIndex);
+                el.src = nextImage;
+              } else {
+                // No more product images, use generic placeholder (NOT another product's image)
+                el.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 500%22%3E%3Crect fill=%22%23F5F2ED%22 width=%22400%22 height=%22500%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%238E8A81%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EImage Unavailable%3C/text%3E%3C/svg%3E';
+              }
             }
           }}
           className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"

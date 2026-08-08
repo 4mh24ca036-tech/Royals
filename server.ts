@@ -8,10 +8,11 @@ import adminRouter from './server/routes/admin.js';
 import authRouter from './server/routes/auth.js';
 import imagesRouter from './server/routes/images.js';
 import bannersRouter from './server/routes/banners.js';
+import categoriesRouter from './server/routes/categories.js';
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3002;
+  const PORT = Number(process.env.PORT) || 3031;
 
   // Serve permanently uploaded product images from the persistent uploads directory.
   // This must come BEFORE Vite middleware so static files are resolved first.
@@ -76,6 +77,7 @@ async function startServer() {
   app.use('/api/auth', authRouter);
   app.use('/api/images', imagesRouter);
   app.use('/api/banners', bannersRouter);
+  app.use('/api/categories', categoriesRouter);
 
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {

@@ -84,6 +84,10 @@ function initializeSchema(db: Database) {
       slug TEXT UNIQUE NOT NULL,
       description TEXT,
       image_url TEXT,
+      mobile_image_url TEXT DEFAULT '',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
       display_order INTEGER DEFAULT 0
     );
 
@@ -247,7 +251,7 @@ function initializeSchema(db: Database) {
       low_stock_threshold INTEGER DEFAULT 3,
       last_restocked_at TEXT
     );
-con
+
     CREATE TABLE IF NOT EXISTS product_images (
       id          TEXT PRIMARY KEY,
       product_id  TEXT NOT NULL,
@@ -304,6 +308,48 @@ con
   if (!orderItemColumns.includes('product_description')) {
     db.run('ALTER TABLE order_items ADD COLUMN product_description TEXT');
   }
+
+  // Migration for categories table to add new columns for permanent image management
+  const categoryColumns = db.exec('PRAGMA table_info(categories)')[0]?.values.map((column: any[]) => column[1]) || [];
+  if (!categoryColumns.includes('mobile_image_url')) {
+    db.run('ALTER TABLE categories ADD COLUMN mobile_image_url TEXT DEFAULT \'\'');
+  }
+  if (!categoryColumns.includes('is_active')) {
+    db.run('ALTER TABLE categories ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
+  }
+  if (!categoryColumns.includes('created_at')) {
+    db.run('ALTER TABLE categories ADD COLUMN created_at TEXT NOT NULL DEFAULT \'\'');
+  }
+  if (!categoryColumns.includes('updated_at')) {
+    db.run('ALTER TABLE categories ADD COLUMN updated_at TEXT NOT NULL DEFAULT \'\'');
+  }
+
+  // Migration to enforce single cover image per product
+  // This ensures that if a product has multiple images marked as cover, only the first one remains as cover
+  const productImagesRes = db.exec('SELECT product_id, COUNT(*) as count FROM product_images WHERE is_cover = 1 GROUP BY product_id HAVING count > 1');
+  if (productImagesRes.length > 0 && productImagesRes[0] && productImagesRes[0].values) {
+    const productIdsWithMultipleCovers = productImagesRes[0].values.map((row: any[]) => row[0] as string);
+    
+    for (const productId of productIdsWithMultipleCovers) {
+      // Get all cover images for this product, ordered by display_order
+      const coverImages = db.exec(
+        'SELECT id FROM product_images WHERE product_id = ? AND is_cover = 1 ORDER BY display_order ASC, created_at ASC',
+        [productId]
+      );
+      
+      if (coverImages.length > 0 && coverImages[0] && coverImages[0].values) {
+        const coverImageIds = coverImages[0].values.map((row: any[]) => row[0] as string);
+        
+        // Keep the first one as cover, set all others to non-cover
+        for (let i = 1; i < coverImageIds.length; i++) {
+          db.run(
+            'UPDATE product_images SET is_cover = 0, updated_at = ? WHERE id = ?',
+            [new Date().toISOString(), coverImageIds[i]]
+          );
+        }
+      }
+    }
+  }
 }
 
 function seedInitialData(db: Database) {
@@ -355,6 +401,7 @@ function seedInitialData(db: Database) {
         slug: 'mens-kurta-sets',
         description: 'Imperial handloom Matka raw silk, Chanderi, and Angrakha kurta pajama sets tailored with antique gold embroidery.',
         image_url: '/images/mens_raw_silk_kurta.jpg',
+        mobile_image_url: '',
         display_order: 1
       },
       {
@@ -363,6 +410,7 @@ function seedInitialData(db: Database) {
         slug: 'womens-kurta-sets',
         description: 'Lucknowi Chikankari tunics, Gota Patti sharara sets, and pure georgette kurtas adorned with 24K gold mukaish work.',
         image_url: '/images/women_chikankari_kurta.jpg',
+        mobile_image_url: '',
         display_order: 2
       },
       {
@@ -371,6 +419,7 @@ function seedInitialData(db: Database) {
         slug: 'anarkali-and-angrakha-kurtas',
         description: 'Sweeping 48-kali floor-length Anarkalis, Banarasi zari yokes, and Jaipuri side-tie Angrakhas crafted in pure silks.',
         image_url: '/images/emerald_anarkali_kurta.jpg',
+        mobile_image_url: '',
         display_order: 3
       },
       {
@@ -379,6 +428,7 @@ function seedInitialData(db: Database) {
         slug: 'bandhgala-and-jacket-kurtas',
         description: 'Structured short kurta bandhgalas, metallic brocade Nehru jackets, and raw silk achkan kurta sets.',
         image_url: '/images/midnight_bandhgala_kurta.jpg',
+        mobile_image_url: '',
         display_order: 4
       },
       {
@@ -387,6 +437,7 @@ function seedInitialData(db: Database) {
         slug: 'bridal-and-festive-couture',
         description: 'Heirloom velvet kurti lehenga sets, Zardozi dupattas, and grand wedding ensembles from the Jaipur atelier.',
         image_url: '/images/kurta_chanderi_sharara.jpg',
+        mobile_image_url: '',
         display_order: 5
       },
       {
@@ -395,15 +446,17 @@ function seedInitialData(db: Database) {
         slug: 'heritage-accessories',
         description: 'Jaipuri royal safas, hand-woven chanderi stoles, gilded crest buttons, and handcrafted accessories.',
         image_url: '/images/kurta_jaipur_angrakha.jpg',
+        mobile_image_url: '',
         display_order: 6
       }
     ];
 
+    const now = new Date().toISOString();
     for (const cat of categories) {
       db.run(
-        `INSERT INTO categories (id, name, slug, description, image_url, display_order)
-         VALUES (?, ?, ?, ?, ?, ?);`,
-        [cat.id, cat.name, cat.slug, cat.description, cat.image_url, cat.display_order]
+        `INSERT INTO categories (id, name, slug, description, image_url, mobile_image_url, is_active, created_at, updated_at, display_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [cat.id, cat.name, cat.slug, cat.description, cat.image_url, cat.mobile_image_url, 1, now, now, cat.display_order]
       );
     }
   }
