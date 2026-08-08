@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  User as UserIcon, 
-  Package, 
-  MapPin, 
-  Bell, 
-  LogOut, 
-  Plus, 
-  Trash2, 
-  FileText, 
-  Receipt, 
-  Truck, 
+import {
+  X,
+  User as UserIcon,
+  Package,
+  MapPin,
+  Bell,
+  LogOut,
+  Plus,
+  Trash2,
+  FileText,
+  Receipt,
+  Truck,
   Sparkles,
   Phone,
   CheckCircle2,
@@ -45,7 +45,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [newLine1, setNewLine1] = useState<string>('');
   const [newLine2, setNewLine2] = useState<string>('');
   const [newCity, setNewCity] = useState<string>('');
-  const [newState, setNewState] = useState<string>('Rajasthan');
+  const [newState, setNewState] = useState<string>('Uttar Pradesh');
   const [newPincode, setNewPincode] = useState<string>('');
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="relative w-full max-w-4xl bg-[#FAF9F6] border border-[#E5E1D8] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
+
         {/* Profile Header */}
         <div className="p-6 bg-[#F5F2ED] border-b border-[#E5E1D8] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -131,9 +131,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="px-6 border-b border-[#E5E1D8] bg-white flex items-center gap-6 text-[11px] uppercase tracking-[0.2em] font-medium font-cinzel">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === 'orders' ? 'text-[#C5A059] border-b-2 border-[#C5A059] font-semibold' : 'text-[#8E8A81] hover:text-[#1A1A1A]'
-            }`}
+            className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors ${activeTab === 'orders' ? 'text-[#C5A059] border-b-2 border-[#C5A059] font-semibold' : 'text-[#8E8A81] hover:text-[#1A1A1A]'
+              }`}
           >
             <Package className="w-3.5 h-3.5" />
             <span>Orders ({orders.length})</span>
@@ -141,9 +140,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('addresses')}
-            className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === 'addresses' ? 'text-[#C5A059] border-b-2 border-[#C5A059] font-semibold' : 'text-[#8E8A81] hover:text-[#1A1A1A]'
-            }`}
+            className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors ${activeTab === 'addresses' ? 'text-[#C5A059] border-b-2 border-[#C5A059] font-semibold' : 'text-[#8E8A81] hover:text-[#1A1A1A]'
+              }`}
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>Addresses ({addresses.length})</span>
@@ -151,9 +149,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors relative ${
-              activeTab === 'notifications' ? 'text-[#C5A059] border-b-2 border-[#C5A059] font-semibold' : 'text-[#8E8A81] hover:text-[#1A1A1A]'
-            }`}
+            className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors relative ${activeTab === 'notifications' ? 'text-[#C5A059] border-b-2 border-[#C5A059] font-semibold' : 'text-[#8E8A81] hover:text-[#1A1A1A]'
+              }`}
           >
             <Bell className="w-3.5 h-3.5" />
             <span>Notifications</span>
@@ -167,7 +164,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* Tab Contents */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          
+
           {/* ORDERS TAB */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
@@ -371,9 +368,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <div
                     key={n.id}
                     onClick={() => markNotificationAsRead(n.id)}
-                    className={`p-4 border transition-colors cursor-pointer flex items-start gap-3 ${
-                      n.is_read === 0 ? 'bg-white border-[#C5A059] shadow-2xs' : 'bg-[#FAF9F6] border-[#E5E1D8] opacity-80'
-                    }`}
+                    className={`p-4 border transition-colors cursor-pointer flex items-start gap-3 ${n.is_read === 0 ? 'bg-white border-[#C5A059] shadow-2xs' : 'bg-[#FAF9F6] border-[#E5E1D8] opacity-80'
+                      }`}
                   >
                     <div className="w-8 h-8 bg-[#F5F2ED] border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] shrink-0 mt-0.5">
                       <Bell className="w-3.5 h-3.5" />

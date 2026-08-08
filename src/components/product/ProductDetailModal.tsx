@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  Heart, 
-  ShoppingBag, 
-  Sparkles, 
-  Truck, 
-  ShieldCheck, 
-  Ruler, 
-  Phone, 
-  MessageCircle, 
-  Star, 
-  Check, 
+import {
+  X,
+  Heart,
+  ShoppingBag,
+  Sparkles,
+  Truck,
+  ShieldCheck,
+  Ruler,
+  Phone,
+  MessageCircle,
+  Star,
+  Check,
   ArrowRight,
   Send
 } from 'lucide-react';
@@ -106,14 +106,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-sm overflow-y-auto">
         <div className="relative w-full max-w-5xl bg-[#FAF9F6] shadow-2xl border border-[#E5E1D8] overflow-hidden my-auto max-h-[92vh] flex flex-col">
-          
+
           {/* Top Bar with Close */}
           <div className="px-6 py-3.5 bg-[#F5F2ED] border-b border-[#E5E1D8] flex items-center justify-between">
             <div className="flex items-center gap-2 text-[10px] font-medium text-[#C5A059] uppercase tracking-[0.3em] font-cinzel">
               <Sparkles className="w-3 h-3 text-[#C5A059]" />
-              <span>Jaipur Atelier Masterpiece</span>
+              <span>Lucknow Atelier Masterpiece</span>
             </div>
-            
+
             <button
               onClick={onClose}
               className="p-1.5 text-[#6B6658] hover:text-[#1A1A1A] transition-colors cursor-pointer"
@@ -126,7 +126,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* Modal Body: Two Column Layout */}
           <div className="overflow-y-auto flex-1 p-6 sm:p-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
-              
+
               {/* Left Column: Image Gallery (6 cols) */}
               <div className="lg:col-span-6 space-y-4">
                 <ProductImageGallery
@@ -196,11 +196,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <button
                           key={sz}
                           onClick={() => setSelectedSize(sz)}
-                          className={`px-4 py-2 text-xs font-medium uppercase tracking-wider transition-all cursor-pointer ${
-                            currentSize === sz
+                          className={`px-4 py-2 text-xs font-medium uppercase tracking-wider transition-all cursor-pointer ${currentSize === sz
                               ? 'bg-[#1A1A1A] text-white border border-[#1A1A1A]'
                               : 'bg-white border border-[#E5E1D8] text-[#6B6658] hover:border-[#C5A059] hover:text-[#1A1A1A]'
-                          }`}
+                            }`}
                         >
                           {sz}
                         </button>
@@ -250,7 +249,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             <p><span className="text-[#8E8A81] uppercase text-[10px] tracking-wider">Fabric:</span> {product.fabric}</p>
                             <p><span className="text-[#8E8A81] uppercase text-[10px] tracking-wider">Embroidery:</span> {product.embroidery}</p>
                             <p><span className="text-[#8E8A81] uppercase text-[10px] tracking-wider">Color:</span> {product.color}</p>
-                            <p><span className="text-[#8E8A81] uppercase text-[10px] tracking-wider">Origin:</span> Jaipur Atelier, Rajasthan</p>
+                            <p><span className="text-[#8E8A81] uppercase text-[10px] tracking-wider">Origin:</span> Lucknow Atelier, Uttar Pradesh</p>
                           </div>
                         </div>
                       )}
@@ -364,9 +363,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                     <button
                       onClick={() => toggleWishlist(product)}
-                      className={`p-2.5 border transition-colors cursor-pointer ${
-                        inWishlist ? 'bg-[#1A1A1A] text-[#C5A059] border-[#1A1A1A]' : 'bg-white border-[#E5E1D8] text-[#6B6658]'
-                      }`}
+                      className={`p-2.5 border transition-colors cursor-pointer ${inWishlist ? 'bg-[#1A1A1A] text-[#C5A059] border-[#1A1A1A]' : 'bg-white border-[#E5E1D8] text-[#6B6658]'
+                        }`}
                       aria-label="Save to Wishlist"
                     >
                       <Heart className={`w-4 h-4 ${inWishlist ? 'fill-[#C5A059]' : ''}`} />

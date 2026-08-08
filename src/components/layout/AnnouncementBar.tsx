@@ -21,7 +21,7 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ onOpenStoreMod
             onClick={onOpenStoreModal}
             className="hover:text-[#C5A059] transition-colors hidden md:inline-flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Jaipur Atelier: Road No. 6, Chaksu</span>
+            <span>Lucknow Atelier: Chowk, Lal Ji Tandon Marg</span>
           </button>
           
           <a

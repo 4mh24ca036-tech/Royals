@@ -17,7 +17,7 @@ export const HeritageStory: React.FC<HeritageStoryProps> = ({ onOpenStoreModal }
             <div className="aspect-[4/5] overflow-hidden shadow-xl border border-[#E5E1D8] bg-[#EAE7E0]">
               <img
                 src="/images/kurta_chanderi_sharara.jpg"
-                alt="Jaipur Royal Atelier Craftsmanship"
+                alt="Lucknow Royal Atelier Craftsmanship"
                 loading="eager"
                 decoding="async"
                 onError={(e) => {
@@ -40,11 +40,11 @@ export const HeritageStory: React.FC<HeritageStoryProps> = ({ onOpenStoreModal }
                 </span>
               </div>
               <p className="text-xs text-[#D8D2C2] leading-relaxed font-light">
-                4th Generation Court Embroidery Masters of Jaipur, preserving 400 years of Rajputana textile heritage.
+                4th Generation Court Embroidery Masters of Lucknow, preserving 400 years of Nawabi textile heritage.
               </p>
               <div className="pt-1 flex items-center gap-1.5 text-[10px] text-[#C5A059] uppercase tracking-wider">
                 <MapPin className="w-3 h-3" />
-                <span>Road No. 6, Chaksu, Jaipur</span>
+                <span>Chowk, Lucknow</span>
               </div>
             </div>
           </div>
@@ -63,7 +63,7 @@ export const HeritageStory: React.FC<HeritageStoryProps> = ({ onOpenStoreModal }
             </h2>
 
             <p className="text-xs sm:text-sm md:text-base text-[#6B6658] leading-relaxed font-light">
-              Founded in the Pink City of Jaipur, ROYALS redefines Indian haute couture through uncompromising craftsmanship. Every silhouette is an ode to timeless royal architecture—incorporating intricate Zardozi wirework, hand-tied Bandhej drapes, and antique gold zari sourced from master weavers.
+              Founded in the City of Nawabs, Lucknow, Lucknow Chikan Emporium redefines Indian haute couture through uncompromising craftsmanship. Every silhouette is an ode to timeless Nawabi elegance—incorporating intricate Zardozi wirework, hand-tied Chikankari motifs, and antique gold zari sourced from master weavers.
             </p>
 
             <div className="grid grid-cols-2 gap-6 pt-4 border-t border-[#E5E1D8]">
@@ -92,7 +92,7 @@ export const HeritageStory: React.FC<HeritageStoryProps> = ({ onOpenStoreModal }
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[11px] uppercase tracking-[0.2em] font-medium transition-colors cursor-pointer"
               >
                 <Compass className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Visit Jaipur Atelier</span>
+                <span>Visit Lucknow Atelier</span>
               </button>
 
               <a

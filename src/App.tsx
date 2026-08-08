@@ -154,7 +154,7 @@ function RoyalsApp() {
 
   // WhatsApp concierge quick url
   const floatingWhatsappUrl = `https://wa.me/918000461784?text=${encodeURIComponent(
-    'Hello ROYALS Atelier Jaipur, I would like to inquire about bespoke bridal couture and private appointments.'
+    'Hello Lucknow Chikan Emporium, I would like to inquire about bespoke bridal couture and private appointments.'
   )}`;
 
   return (
@@ -192,7 +192,7 @@ function RoyalsApp() {
               onOpenStoreModal={() => setIsStoreModalOpen(true)}
             />
 
-            {/* 2. Heritage Story of Jaipur Atelier */}
+            {/* 2. Heritage Story of Lucknow Atelier */}
             <HeritageStory onOpenStoreModal={() => setIsStoreModalOpen(true)} />
 
             {/* 3. Curated Masterpieces Grid */}
@@ -291,7 +291,7 @@ function RoyalsApp() {
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-20 lg:bottom-8 right-6 z-40 p-3.5 sm:px-5 sm:py-3.5 rounded-full bg-emerald-700 hover:bg-emerald-600 text-white shadow-2xl flex items-center gap-2.5 transition-all duration-300 hover:scale-105 group border border-emerald-400/40"
-        title="Chat with Jaipur Atelier Concierge (+91 8000461784)"
+        title="Chat with Lucknow Atelier Concierge (+91 8000461784)"
       >
         <MessageCircle className="w-5 h-5 text-emerald-100" />
         <span className="hidden sm:inline text-xs font-bold tracking-wide uppercase font-cinzel">

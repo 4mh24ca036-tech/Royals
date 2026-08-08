@@ -77,7 +77,7 @@ export const CategoryShowcase: React.FC<CategoryShowcaseProps> = ({
               {/* Text Info */}
               <div className="absolute inset-0 p-6 sm:p-8 flex flex-col justify-end text-white">
                 <span className="text-[10px] uppercase tracking-[0.25em] text-[#C5A059] font-cinzel font-medium">
-                  Jaipur Atelier
+                  Lucknow Atelier
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-serif italic font-light tracking-wide mt-1 text-white">
                   {cat.name}

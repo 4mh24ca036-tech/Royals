@@ -49,7 +49,7 @@ export const AuthModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="relative w-full max-w-md bg-[#FAF9F6] border border-[#E5E1D8] shadow-2xl overflow-hidden">
-        
+
         {/* Header */}
         <div className="p-6 bg-[#F5F2ED] border-b border-[#E5E1D8] text-center relative">
           <button
@@ -61,7 +61,7 @@ export const AuthModal: React.FC = () => {
 
           <div className="inline-flex items-center gap-1.5 text-[9px] uppercase font-cinzel font-medium text-[#C5A059] tracking-[0.3em]">
             <Sparkles className="w-2.5 h-2.5" />
-            <span>JAIPUR HAUTE ATELIER</span>
+            <span>LUCKNOW CHIKAN ATELIER</span>
             <Sparkles className="w-2.5 h-2.5" />
           </div>
           <h3 className="text-2xl font-serif italic font-light text-[#1A1A1A] tracking-wide mt-1">
@@ -82,19 +82,19 @@ export const AuthModal: React.FC = () => {
           )}
 
           <div>
-              <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Full Name</label>
-              <div className="relative">
-                <UserIcon className="w-4 h-4 text-[#8E8A81] absolute left-3 top-3" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Princess Ananya Rathore"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 border border-[#E5E1D8] text-xs bg-white focus:outline-none focus:border-[#C5A059] font-light"
-                />
-              </div>
+            <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Full Name</label>
+            <div className="relative">
+              <UserIcon className="w-4 h-4 text-[#8E8A81] absolute left-3 top-3" />
+              <input
+                type="text"
+                required
+                placeholder="e.g. Princess Ananya Rathore"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 border border-[#E5E1D8] text-xs bg-white focus:outline-none focus:border-[#C5A059] font-light"
+              />
             </div>
+          </div>
 
           <div>
             <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Email Address</label>
@@ -112,18 +112,18 @@ export const AuthModal: React.FC = () => {
           </div>
 
           <div>
-              <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Phone Number (Optional)</label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-[#8E8A81] absolute left-3 top-3" />
-                <input
-                  type="tel"
-                  placeholder="e.g. 9876543210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 border border-[#E5E1D8] text-xs bg-white focus:outline-none focus:border-[#C5A059] font-light"
-                />
-              </div>
+            <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Phone Number (Optional)</label>
+            <div className="relative">
+              <Phone className="w-4 h-4 text-[#8E8A81] absolute left-3 top-3" />
+              <input
+                type="tel"
+                placeholder="e.g. 9876543210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 border border-[#E5E1D8] text-xs bg-white focus:outline-none focus:border-[#C5A059] font-light"
+              />
             </div>
+          </div>
 
           <div>
             <label className="block text-[10px] uppercase tracking-[0.2em] font-medium text-[#1A1A1A] mb-1 font-cinzel">Password</label>

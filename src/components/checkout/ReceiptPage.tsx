@@ -93,7 +93,7 @@ export const ReceiptPage: React.FC<ReceiptPageProps> = ({
   }
 
   const whatsappUrl = `https://wa.me/918000461784?text=${encodeURIComponent(
-    `Hello ROYALS Jaipur Atelier,\n\nI have placed an order and generated my official receipt.\n\nOrder Number: #${order.order_number}\nTracking ID: ${order.tracking_id}\nTotal Amount: ₹${order.grand_total.toLocaleString('en-IN')}\n\nI have attached my payment receipt and screenshot. Please verify.`
+    `Hello Lucknow Chikan Emporium,\n\nI have placed an order and generated my official receipt.\n\nOrder Number: #${order.order_number}\nTracking ID: ${order.tracking_id}\nTotal Amount: ₹${order.grand_total.toLocaleString('en-IN')}\n\nI have attached my payment receipt and screenshot. Please verify.`
   )}`;
 
   return (
@@ -148,10 +148,11 @@ export const ReceiptPage: React.FC<ReceiptPageProps> = ({
             </div>
 
             <div className="text-left sm:text-right text-xs text-[#6B6658] space-y-1 font-light">
-              <p className="font-semibold text-[#1A1A1A]">Jaipur Atelier Headquarters</p>
-              <p>Road No. 6, District Chaksu, Jaipur</p>
-              <p>Rajasthan 303901, India</p>
-              <p className="text-[#C5A059] font-mono text-[11px]">GSTIN: 08AAACR8942K1Z5</p>
+              <p className="font-semibold text-[#1A1A1A]">Lucknow Chikan Emporium</p>
+              <p>6, Lal Ji Tandon Marg (Khun Khun Ji Road),</p>
+              <p>Opposite Munnu Lal Dharamshala, Near Domino's Pizza,</p>
+              <p>Chowk, Lucknow, Uttar Pradesh – 226003, India</p>
+              <p className="text-[#C5A059] font-mono text-[11px]">GSTIN: 09AAACR8942K1Z3</p>
             </div>
           </div>
 
@@ -304,7 +305,7 @@ export const ReceiptPage: React.FC<ReceiptPageProps> = ({
           <div className="p-5 bg-gradient-to-r from-[#FAF8F5] to-[#F5EFE6] border border-[#C5A059]/40 rounded-xl space-y-3">
             <h4 className="text-xs font-cinzel font-bold uppercase tracking-widest text-[#C5A059] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-              <span>Jaipur Atelier Verification Instructions</span>
+              <span>Lucknow Atelier Verification Instructions</span>
             </h4>
             <p className="text-xs text-[#6B6658] leading-relaxed font-light">
               To complete your bespoke order tailoring, please transfer the total of <strong className="font-semibold text-[#1A1A1A]">₹{order.grand_total.toLocaleString('en-IN')}</strong> to our bank/UPI account and tap the WhatsApp button below to share your payment screenshot.
@@ -312,8 +313,8 @@ export const ReceiptPage: React.FC<ReceiptPageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-white p-3 border border-[#E5E1D8] rounded-lg">
               <div>
                 <span className="text-[10px] uppercase tracking-wider text-[#8E8A81] block font-bold font-cinzel">Atelier Bank Details</span>
-                <p className="font-medium text-[#1A1A1A]">ROYALS Luxury Fashion Pvt Ltd</p>
-                <p className="text-[11px] text-[#6B6658]">A/C: 980046178490 (HDFC Bank Jaipur)</p>
+                <p className="font-medium text-[#1A1A1A]">Lucknow Chikan Emporium Pvt Ltd</p>
+                <p className="text-[11px] text-[#6B6658]">A/C: 980046178490 (HDFC Bank Lucknow)</p>
                 <p className="text-[11px] text-[#6B6658]">IFSC: HDFC0001842</p>
               </div>
               <div>

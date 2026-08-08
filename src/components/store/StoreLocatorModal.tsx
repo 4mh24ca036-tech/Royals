@@ -9,8 +9,8 @@ interface StoreLocatorModalProps {
 export const StoreLocatorModal: React.FC<StoreLocatorModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const address = 'Road No. 6, District Chaksu, Jaipur, Rajasthan, India - 303901';
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Road No. 6, Chaksu, Jaipur, Rajasthan, India')}`;
+  const address = '6, Lal Ji Tandon Marg (Khun Khun Ji Road), Opposite Munnu Lal Dharamshala, Near Domino\'s Pizza, Chowk, Lucknow, Uttar Pradesh – 226003, India';
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('6, Lal Ji Tandon Marg, Chowk, Lucknow, Uttar Pradesh 226003, India')}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -23,9 +23,9 @@ export const StoreLocatorModal: React.FC<StoreLocatorModalProps> = ({ isOpen, on
             <div>
               <span className="text-[9px] uppercase tracking-[0.25em] text-[#C5A059] font-cinzel font-medium">Flagship Store</span>
               <h3 className="text-xl font-serif italic font-light text-[#1A1A1A]">
-                ROYALS Flagship Atelier & Salon
+                Lucknow Chikan Emporium — Flagship Atelier
               </h3>
-              <p className="text-[11px] text-[#6B6658] font-light">Jaipur, Rajasthan, India</p>
+              <p className="text-[11px] text-[#6B6658] font-light">Chowk, Lucknow, Uttar Pradesh – 226003</p>
             </div>
           </div>
 
@@ -44,14 +44,14 @@ export const StoreLocatorModal: React.FC<StoreLocatorModalProps> = ({ isOpen, on
           <div className="relative aspect-[16/9] overflow-hidden border border-[#E5E1D8] bg-[#EAE7E0]">
             <img
               src="/uploads/prod_boutique_01/garment-01.jpeg"
-              alt="Jaipur Royal Architecture"
+              alt="Lucknow Royal Architecture"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-5 text-white">
               <div>
                 <span className="text-[10px] uppercase tracking-[0.25em] font-cinzel text-[#C5A059]">Heritage Flagship</span>
-                <p className="text-sm font-serif italic font-light">Jaipur Couture Atelier & Private Bridal Suites</p>
+                <p className="text-sm font-serif italic font-light">Lucknow Chikan Emporium — Couture Atelier & Private Bridal Suites</p>
               </div>
             </div>
           </div>
@@ -98,7 +98,7 @@ export const StoreLocatorModal: React.FC<StoreLocatorModalProps> = ({ isOpen, on
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <a
-                href="https://wa.me/918000461784?text=Hello%20ROYALS%2C%20I%20would%20like%20to%20schedule%20a%20visit%20to%20the%20Jaipur%20Atelier."
+                href="https://wa.me/918000461784?text=Hello%20Lucknow%20Chikan%20Emporium%2C%20I%20would%20like%20to%20schedule%20a%20visit%20to%20the%20Lucknow%20Atelier."
                 target="_blank"
                 rel="noreferrer"
                 className="py-3 px-4 bg-[#C5A059] hover:bg-[#B38D45] text-white font-medium text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-colors"

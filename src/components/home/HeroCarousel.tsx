@@ -31,7 +31,7 @@ const FALLBACK_SLIDES: BannerSlide[] = [
     id: 'fallback_1',
     title: 'THE IMPERIAL KURTA ATELIER',
     subtitle: 'HERITAGE COUTURE 2026',
-    description: 'Handcrafted in pure handloom raw silk, Chanderi, and organza with antique Jaipur Zardozi, Chikankari, and real 24K gold mukaish work.',
+    description: 'Handcrafted in pure handloom raw silk, Chanderi, and organza with antique Lucknow Zardozi, Chikankari, and real 24K gold mukaish work.',
     image_url: '/images/hero_royal_kurtas.jpg',
     mobile_image_url: '',
     button_text: 'Explore Royal Kurtas',
@@ -59,7 +59,7 @@ const FALLBACK_SLIDES: BannerSlide[] = [
     id: 'fallback_3',
     title: 'THE MAHARAJA RAW SILK SETS',
     subtitle: "REGAL MEN'S ETHNIC COUTURE",
-    description: 'Pure handloom raw silk kurta pajama sets and structured Bandhgalas with handcrafted 24K gold plated Jaipur crest buttons.',
+    description: 'Pure handloom raw silk kurta pajama sets and structured Bandhgalas with handcrafted 24K gold plated Lucknow crest buttons.',
     image_url: '/images/mens_raw_silk_kurta.jpg',
     mobile_image_url: '',
     button_text: "Explore Men's Silk Kurtas",
@@ -234,7 +234,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplore, onOpenSto
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-black/40 hover:bg-[#1A1A1A] backdrop-blur-md border border-[#E5E1D8]/40 text-[#FAF9F6] text-[11px] uppercase tracking-[0.2em] font-medium transition-all"
             >
               <Phone className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Jaipur Atelier</span>
+              <span>Lucknow Atelier</span>
             </a>
           </div>
         </div>

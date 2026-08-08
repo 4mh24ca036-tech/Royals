@@ -119,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ROYALS
               </h1>
               <span className="text-[8px] tracking-[0.4em] uppercase text-[#8E8A81] mt-1 font-sans font-medium">
-                JAIPUR • ATELIER
+                LUCKNOW • ATELIER
               </span>
             </div>
 
@@ -137,7 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <a
                 href="tel:8000461784"
                 className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#E5E1D8] hover:border-[#C5A059] text-[11px] uppercase tracking-[0.15em] text-[#1A1A1A] hover:text-[#C5A059] transition-colors shadow-2xs font-medium"
-                title="Call Jaipur Atelier: 8000461784"
+                title="Call Lucknow Atelier: 8000461784"
               >
                 <Phone className="w-3 h-3 text-[#C5A059]" />
                 <span>8000461784</span>
@@ -224,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={onOpenStoreModal}
               className="text-[11px] uppercase tracking-[0.2em] text-[#6B6658] hover:text-[#C5A059] flex items-center gap-1 cursor-pointer font-medium"
             >
-              <span>Jaipur Atelier</span>
+              <span>Lucknow Atelier</span>
             </button>
           </nav>
         </div>
@@ -319,14 +319,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ))}
               </div>
 
-              {/* Jaipur Atelier Information Box */}
+              {/* Lucknow Atelier Information Box */}
               <div className="mt-8 p-4 bg-[#F5F2ED] border border-[#E5E1D8] space-y-3">
                 <div className="flex items-center gap-2 text-xs font-serif italic text-[#1A1A1A]">
                   <Compass className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Jaipur Flagship Atelier</span>
+                  <span>Lucknow Flagship Atelier</span>
                 </div>
                 <p className="text-[11px] text-[#6B6658] leading-relaxed">
-                  Road No. 6, District Chaksu, Jaipur, Rajasthan, India
+                  6, Lal Ji Tandon Marg (Khun Khun Ji Road), Chowk, Lucknow, Uttar Pradesh – 226003
                 </p>
                 <div className="pt-2 border-t border-[#E5E1D8] flex flex-col gap-2">
                   <a

@@ -24,7 +24,7 @@ export const BespokeAtelierCTA: React.FC<BespokeAtelierCTAProps> = ({ onOpenStor
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif italic font-light tracking-wide text-white">
-            Experience Private Atelier Fittings in Jaipur
+            Experience Private Atelier Fittings in Lucknow
           </h2>
 
           <p className="text-xs sm:text-sm md:text-base text-[#8E8A81] font-light leading-relaxed">
@@ -34,7 +34,7 @@ export const BespokeAtelierCTA: React.FC<BespokeAtelierCTAProps> = ({ onOpenStor
           {/* Store Address Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#262626] border border-[#444] text-[11px] uppercase tracking-wider text-[#FAF9F6]">
             <MapPin className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Road No. 6, District Chaksu, Jaipur, Rajasthan, India</span>
+            <span>6, Lal Ji Tandon Marg (Khun Khun Ji Road), Chowk, Lucknow, Uttar Pradesh – 226003, India</span>
           </div>
 
           {/* Action CTAs */}

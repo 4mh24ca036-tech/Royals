@@ -43,7 +43,7 @@ export const Footer: React.FC<FooterProps> = ({
                 Handcrafted Couture
               </h4>
               <p className="text-[11px] text-[#8E8A81] mt-1 leading-relaxed">
-                Authentic Jaipur Zardozi, Gota Patti & Banarasi weaving by ancestral artisans.
+                Authentic Lucknow Zardozi, Gota Patti & Banarasi weaving by ancestral artisans.
               </p>
             </div>
           </div>
@@ -102,10 +102,10 @@ export const Footer: React.FC<FooterProps> = ({
               </span>
             </div>
             <h3 className="text-3xl font-serif font-light text-white tracking-[0.3em] uppercase">
-              ROYALS
+              Lucknow Chikan Emporium
             </h3>
             <p className="text-xs text-[#8E8A81] leading-relaxed max-w-sm font-light">
-              ROYALS is an elite Indian luxury fashion house embodying the splendor of Rajputana royalty. Each bridal lehenga, royal achkan, and Banarasi drape is masterfully hand-woven in our Jaipur atelier with purest gold zari and heirloom silk.
+              Lucknow Chikan Emporium is an elite Indian luxury fashion house embodying the splendor of Nawabi heritage. Each bridal lehenga, royal achkan, and Banarasi drape is masterfully hand-woven in our Lucknow atelier with purest gold zari and heirloom silk.
             </p>
             
             {/* Quick WhatsApp & Call Action Buttons */}
@@ -201,16 +201,18 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Mandatory Store Information & Operating Hours */}
           <div className="space-y-3">
             <h4 className="text-[10px] font-medium uppercase tracking-[0.25em] text-[#C5A059] mb-4 font-cinzel">
-              Jaipur Flagship Atelier
+              Lucknow Flagship Atelier
             </h4>
             
             <div className="flex items-start gap-2.5 text-xs text-[#8E8A81]">
               <MapPin className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-white">ROYALS Flagship Store</p>
-                <p className="mt-0.5">Road No. 6,</p>
-                <p>District Chaksu, Jaipur,</p>
-                <p>Rajasthan, India - 303901</p>
+                <p className="font-medium text-white">Lucknow Chikan Emporium</p>
+                <p className="mt-0.5">6, Lal Ji Tandon Marg</p>
+                <p>(Khun Khun Ji Road),</p>
+                <p>Opposite Munnu Lal Dharamshala,</p>
+                <p>Near Domino's Pizza, Chowk,</p>
+                <p>Lucknow, Uttar Pradesh – 226003</p>
                 <button
                   onClick={onOpenStoreModal}
                   className="mt-1.5 text-[11px] text-[#C5A059] hover:underline flex items-center gap-1 cursor-pointer"
@@ -232,7 +234,7 @@ export const Footer: React.FC<FooterProps> = ({
 
             <div className="flex items-center gap-2.5 text-xs text-[#8E8A81] pt-1">
               <Mail className="w-4 h-4 text-[#C5A059] shrink-0" />
-              <span>concierge@royals.com</span>
+              <span>concierge@lucknowchikanemporium.com</span>
             </div>
           </div>
 
@@ -241,9 +243,9 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom Copyright & Discreet Admin Access */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#8E8A81]">
           <div>
-            <p>© 2026 ROYALS HAUTE COUTURE. All Rights Reserved. GSTIN: 08AAACR8942K1Z5.</p>
+            <p>© 2026 LUCKNOW CHIKAN EMPORIUM. All Rights Reserved. GSTIN: 09AAACR8942K1Z3.</p>
             <p className="text-[11px] text-[#6B6658] mt-0.5">
-              Road No. 6, District Chaksu, Jaipur, Rajasthan, India • Phone: +91 8000461784
+              6, Lal Ji Tandon Marg (Khun Khun Ji Road), Chowk, Lucknow, Uttar Pradesh – 226003 • Phone: +91 8000461784
             </p>
           </div>
 
@@ -252,7 +254,7 @@ export const Footer: React.FC<FooterProps> = ({
               onClick={onOpenStoreModal}
               className="hover:text-[#C5A059] transition-colors cursor-pointer text-xs uppercase tracking-wider"
             >
-              Jaipur Store Locator
+              Lucknow Store Locator
             </button>
 
             {/* Hidden admin access trigger */}

@@ -299,7 +299,7 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     const now = new Date();
     const serverDate = formatDate(now);
     const serverTime = formatTime(now);
-    const adminName = req.admin?.name || 'Jaipur Atelier Operations';
+    const adminName = req.admin?.name || 'Lucknow Atelier Operations';
 
     // Update order status in orders table
     let updateSql = 'UPDATE orders SET order_status = ?, updated_at = ?';
@@ -337,8 +337,8 @@ router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Resp
     // Insert into order_status_history (NEVER OVERWRITES PREVIOUS HISTORY)
     const historyId = `hist_${order.id}_${Date.now()}`;
     const defaultNotes: Record<string, string> = {
-      'Order Placed': 'Order verified and queued in Jaipur Atelier.',
-      'Payment Confirmed': 'Payment verified and credited to Jaipur Atelier accounts.',
+      'Order Placed': 'Order verified and queued in Lucknow Atelier.',
+      'Payment Confirmed': 'Payment verified and credited to Lucknow Atelier accounts.',
       'Preparing Order': 'Artisan hand-finishing, custom sizing, and heirloom packaging initiated.',
       'Packed': 'Inspected by master craftsmen and sealed in tamper-proof royal packaging.',
       'Shipped': `Dispatched via ${courierName || order.courier_name || 'Blue Dart Apex Luxury'} (Tracking ID: ${trackingId || order.tracking_id}).`,
@@ -444,7 +444,7 @@ router.patch('/orders/:id/delivery-date', authenticateAdmin, async (req: any, re
     const now = new Date();
     const serverDate = formatDate(now);
     const serverTime = formatTime(now);
-    const adminName = req.admin?.name || 'Jaipur Atelier Operations';
+    const adminName = req.admin?.name || 'Lucknow Atelier Operations';
 
     // Update in orders table
     db.run(
@@ -634,7 +634,7 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
         embroidery || 'Hand Zardozi & Mukaish',
         color || 'Heritage Classic',
         JSON.stringify(sizeList),
-        description || 'Handcrafted couture piece from ROYALS Jaipur Atelier.',
+        description || 'Handcrafted couture piece from Lucknow Chikan Emporium Atelier.',
         care_instructions || 'Dry Clean Only. Preserve in heirloom storage box.',
         JSON.stringify(imageList),
         5.0,
@@ -939,7 +939,7 @@ router.post('/migrate-images', authenticateAdmin, async (req: Request, res: Resp
   try {
     const db = await getDb();
     const { MigrationService } = await import('../services/migrationService.js');
-    
+
     const migrationService = new MigrationService(db);
     const report = await migrationService.migrateLocalImagesToCloudinary();
 

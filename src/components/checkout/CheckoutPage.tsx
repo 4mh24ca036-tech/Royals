@@ -1,32 +1,32 @@
 import React, { useState } from 'react';
 
-import { 
+import {
 
-  ShieldCheck, 
+  ShieldCheck,
 
-  Truck, 
+  Truck,
 
-  CreditCard, 
+  CreditCard,
 
-  QrCode, 
+  QrCode,
 
-  Building2, 
+  Building2,
 
-  Banknote, 
+  Banknote,
 
-  Lock, 
+  Lock,
 
-  ArrowLeft, 
+  ArrowLeft,
 
-  CheckCircle2, 
+  CheckCircle2,
 
-  Download, 
+  Download,
 
-  MessageCircle, 
+  MessageCircle,
 
-  Phone, 
+  Phone,
 
-  FileText, 
+  FileText,
 
   Receipt,
 
@@ -94,11 +94,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   const [city, setCity] = useState<string>('');
 
-  const [state, setState] = useState<string>('Rajasthan');
+  const [state, setState] = useState<string>('Uttar Pradesh');
 
   const [pincode, setPincode] = useState<string>('');
 
-  
+
 
   // Payment states
 
@@ -250,7 +250,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
         <div className="bg-white border border-[#E5E1D8] shadow-sm p-6 sm:p-10 text-center space-y-8">
 
-          
+
 
           {/* Success Check Badge */}
 
@@ -362,7 +362,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                 <MessageCircle className="w-4 h-4 text-[#C5A059]" />
 
-                <span>Jaipur Atelier Stylist Concierge</span>
+                <span>Lucknow Atelier Stylist Concierge</span>
 
               </div>
 
@@ -450,7 +450,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
 
-        
+
 
         {/* Back button & Title */}
 
@@ -486,23 +486,21 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
 
-          
+
 
           {/* Main Form (7 cols) */}
 
           <div className="lg:col-span-7 space-y-6">
 
-            
+
 
             {/* Step Indicators */}
 
             <div className="grid grid-cols-3 gap-2 pb-2">
 
-              <div className={`p-3 border text-center transition-all ${
+              <div className={`p-3 border text-center transition-all ${step === 1 ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#8E8A81] border-[#E5E1D8]'
 
-                step === 1 ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#8E8A81] border-[#E5E1D8]'
-
-              }`}>
+                }`}>
 
                 <span className="text-[9px] uppercase tracking-[0.2em] font-medium block font-cinzel">Step 1</span>
 
@@ -512,11 +510,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
 
 
-              <div className={`p-3 border text-center transition-all ${
+              <div className={`p-3 border text-center transition-all ${step === 2 ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#8E8A81] border-[#E5E1D8]'
 
-                step === 2 ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#8E8A81] border-[#E5E1D8]'
-
-              }`}>
+                }`}>
 
                 <span className="text-[9px] uppercase tracking-[0.2em] font-medium block font-cinzel">Step 2</span>
 
@@ -526,11 +522,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
 
 
-              <div className={`p-3 border text-center transition-all ${
+              <div className={`p-3 border text-center transition-all ${step === 3 ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#8E8A81] border-[#E5E1D8]'
 
-                step === 3 ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-white text-[#8E8A81] border-[#E5E1D8]'
-
-              }`}>
+                }`}>
 
                 <span className="text-[9px] uppercase tracking-[0.2em] font-medium block font-cinzel">Step 3</span>
 
@@ -736,7 +730,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                       onChange={(e) => setCity(e.target.value)}
 
-                      placeholder="e.g. Jaipur"
+                      placeholder="e.g. Lucknow"
 
                       className="w-full p-3 border border-[#E5E1D8] text-xs bg-[#FAF9F6] focus:bg-white focus:outline-none focus:border-[#C5A059]"
 
@@ -1024,11 +1018,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                     onClick={() => setPaymentMethod('UPI')}
 
-                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${paymentMethod === 'UPI' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
 
-                      paymentMethod === 'UPI' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
-
-                    }`}
+                      }`}
 
                   >
 
@@ -1046,11 +1038,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                     onClick={() => setPaymentMethod('Card')}
 
-                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${paymentMethod === 'Card' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
 
-                      paymentMethod === 'Card' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
-
-                    }`}
+                      }`}
 
                   >
 
@@ -1068,11 +1058,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                     onClick={() => setPaymentMethod('NetBanking')}
 
-                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${paymentMethod === 'NetBanking' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
 
-                      paymentMethod === 'NetBanking' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
-
-                    }`}
+                      }`}
 
                   >
 
@@ -1090,11 +1078,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                     onClick={() => setPaymentMethod('COD')}
 
-                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                    className={`p-3 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${paymentMethod === 'COD' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
 
-                      paymentMethod === 'COD' ? 'border-[#C5A059] bg-[#FAF9F6]' : 'border-[#E5E1D8] bg-white'
-
-                    }`}
+                      }`}
 
                   >
 
@@ -1414,7 +1400,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                   <Phone className="w-3.5 h-3.5 text-[#C5A059]" />
 
-                  <span className="text-[11px] uppercase tracking-wider font-medium">Jaipur Atelier:</span>
+                  <span className="text-[11px] uppercase tracking-wider font-medium">Lucknow Atelier:</span>
 
                 </div>
 

@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Lock, 
-  ShieldCheck, 
-  Package, 
-  ShoppingBag, 
-  Users, 
-  TrendingUp, 
-  AlertTriangle, 
-  Plus, 
-  Trash2, 
-  Edit, 
-  LogOut, 
-  X, 
-  Search, 
-  Tag, 
-  CheckCircle, 
+import {
+  Lock,
+  ShieldCheck,
+  Package,
+  ShoppingBag,
+  Users,
+  TrendingUp,
+  AlertTriangle,
+  Plus,
+  Trash2,
+  Edit,
+  LogOut,
+  X,
+  Search,
+  Tag,
+  CheckCircle,
   CheckCircle2,
   Sparkles,
   Layers,
@@ -142,7 +142,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [prodPrice, setProdPrice] = useState<number>(699);
   const [prodDiscountPrice, setProdDiscountPrice] = useState<number | null>(null);
   const [prodFabric, setProdFabric] = useState('Pure Handloom Raw Silk & Chanderi');
-  const [prodEmbroidery, setProdEmbroidery] = useState('Jaipur Heritage Hand Zardozi & Mukaish');
+  const [prodEmbroidery, setProdEmbroidery] = useState('Lucknow Heritage Hand Zardozi & Mukaish');
   const [prodColor, setProdColor] = useState('Royal Imperial Ruby');
   const [prodSizes, setProdSizes] = useState('S, M, L, XL, XXL, Custom Fit');
   const [prodStock, setProdStock] = useState<number>(12);
@@ -472,7 +472,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setProdColor('Heritage Classic');
     setProdSizes('S, M, L, XL, XXL');
     setProdStock(10);
-    setProdDesc('A handcrafted ROYALS Jaipur boutique creation.');
+    setProdDesc('A handcrafted Lucknow Chikan Emporium boutique creation.');
     setProdImages([]);
     setProdImageRecords([]);
     setProdFeatured(false);
@@ -533,13 +533,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   // Filter orders
   const filteredOrders = orders.filter((ord) => {
-    const matchStatus = orderStatusFilter === 'all' || 
+    const matchStatus = orderStatusFilter === 'all' ||
       ord.order_status === orderStatusFilter ||
       (orderStatusFilter === 'Preparing Order' && ord.order_status === 'Preparing') ||
       (orderStatusFilter === 'Out For Delivery' && ord.order_status === 'Out for Delivery');
 
     const searchLower = orderSearch.toLowerCase();
-    const matchSearch = !orderSearch || 
+    const matchSearch = !orderSearch ||
       ord.order_number.toLowerCase().includes(searchLower) ||
       ord.customer_name.toLowerCase().includes(searchLower) ||
       ord.customer_phone.toLowerCase().includes(searchLower) ||
@@ -558,10 +558,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   return (
     <div id="admin-portal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden">
-      
+
       {/* Live Toast Notification for Incoming Orders */}
       {liveToast && (
-        <div 
+        <div
           id="admin-live-order-toast"
           onClick={() => {
             const found = orders.find((o) => o.id === liveToast.orderId || o.order_number === liveToast.orderNumber);
@@ -582,11 +582,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <p className="text-xs text-[#E8DFD8]">Order #{liveToast.orderNumber} • <span className="font-bold text-[#C5A880]">₹{liveToast.grandTotal.toLocaleString('en-IN')}</span></p>
             <p className="text-[10px] text-[#C5A880] mt-1 underline">Click to view & dispatch</p>
           </div>
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               setLiveToast(null);
-            }} 
+            }}
             className="text-[#A89F91] hover:text-white p-1"
           >
             <X className="w-4 h-4" />
@@ -596,7 +596,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* Main Container */}
       <div className="relative w-full max-w-7xl h-[94vh] bg-[#FAF8F5] rounded-3xl shadow-2xl border border-[#C5A880]/40 overflow-hidden flex flex-col">
-        
+
         {/* Top Operations Command Header */}
         <header className="px-5 py-4 bg-[#141414] text-white border-b border-[#C5A880]/30 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
@@ -728,9 +728,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <nav className="p-3 space-y-1 flex-1 overflow-y-auto font-medium text-xs">
                 <button
                   onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${
-                    activeTab === 'dashboard' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${activeTab === 'dashboard' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <TrendingUp className="w-4 h-4" />
                   <span>Dashboard</span>
@@ -738,9 +737,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('products'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    activeTab === 'products' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${activeTab === 'products' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Package className="w-4 h-4" />
@@ -751,9 +749,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    activeTab === 'orders' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${activeTab === 'orders' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <ShoppingBag className="w-4 h-4" />
@@ -764,9 +761,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('customers'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    activeTab === 'customers' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${activeTab === 'customers' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Users className="w-4 h-4" />
@@ -777,9 +773,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${
-                    activeTab === 'analytics' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${activeTab === 'analytics' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Reports & Analytics</span>
@@ -787,9 +782,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('coupons'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    activeTab === 'coupons' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${activeTab === 'coupons' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Settings className="w-4 h-4" />
@@ -800,9 +794,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('banners'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    activeTab === 'banners' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${activeTab === 'banners' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <ImageIcon className="w-4 h-4" />
@@ -812,9 +805,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   onClick={() => { setActiveTab('categories'); setIsSidebarOpen(false); }}
-                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    activeTab === 'categories' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
-                  }`}
+                  className={`w-full p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${activeTab === 'categories' ? 'bg-[#C5A880] text-black font-bold' : 'text-[#A89F91] hover:bg-[#242424] hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Layers className="w-4 h-4" />
@@ -842,7 +834,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         {!isAdminAuthenticated ? (
           <div className="flex-1 overflow-y-auto flex items-center justify-center p-6 sm:p-12">
             <div className="max-w-md w-full bg-white rounded-3xl p-8 sm:p-10 shadow-xl border border-[#E8DFD8] space-y-6">
-              
+
               <div className="text-center space-y-2">
                 <div className="w-14 h-14 rounded-2xl bg-[#141414] border border-[#C5A880] flex items-center justify-center text-[#C5A880] mx-auto shadow-md">
                   <Sparkles className="w-7 h-7" />
@@ -942,15 +934,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           /* VIEW 2: AUTHENTICATED -> 6 DASHBOARD SECTIONS        */
           /* ---------------------------------------------------- */
           <div className="flex-1 flex flex-col overflow-hidden">
-            
+
             {/* Top Section Tabs */}
             <nav className="px-6 border-b border-[#E8DFD8] bg-white flex items-center gap-2 sm:gap-6 text-xs font-semibold uppercase tracking-wider overflow-x-auto shrink-0 shadow-2xs">
               <button
                 id="admin-tab-dashboard"
                 onClick={() => setActiveTab('dashboard')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'dashboard' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'dashboard' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <TrendingUp className="w-4 h-4" />
                 <span>Dashboard</span>
@@ -959,9 +950,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-orders"
                 onClick={() => setActiveTab('orders')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'orders' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'orders' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <ShoppingBag className="w-4 h-4" />
                 <span>Orders ({orders.length})</span>
@@ -970,9 +960,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-products"
                 onClick={() => setActiveTab('products')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'products' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'products' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <Package className="w-4 h-4" />
                 <span>Products ({products.length})</span>
@@ -981,9 +970,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-customers"
                 onClick={() => setActiveTab('customers')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'customers' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'customers' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <Users className="w-4 h-4" />
                 <span>Customers ({customers.length})</span>
@@ -992,9 +980,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-analytics"
                 onClick={() => setActiveTab('analytics')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'analytics' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'analytics' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <BarChart3 className="w-4 h-4" />
                 <span>Analytics</span>
@@ -1003,9 +990,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-inventory"
                 onClick={() => setActiveTab('inventory')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'inventory' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'inventory' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <Layers className="w-4 h-4" />
                 <span>Inventory ({inventory.length})</span>
@@ -1014,9 +1000,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-coupons"
                 onClick={() => setActiveTab('coupons')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'coupons' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'coupons' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <Tag className="w-4 h-4" />
                 <span>Coupons ({coupons.length})</span>
@@ -1025,9 +1010,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-banners"
                 onClick={() => setActiveTab('banners')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'banners' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'banners' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <ImageIcon className="w-4 h-4" />
                 <span>Banners</span>
@@ -1036,9 +1020,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 id="admin-tab-categories"
                 onClick={() => setActiveTab('categories')}
-                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
-                  activeTab === 'categories' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
-                }`}
+                className={`py-3.5 flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${activeTab === 'categories' ? 'text-[#C5A880] border-b-2 border-[#C5A880] font-bold' : 'text-[#706B65] hover:text-[#141414]'
+                  }`}
               >
                 <Layers className="w-4 h-4" />
                 <span>Categories</span>
@@ -1047,13 +1030,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
             {/* Panel Body */}
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
-              
+
               {/* ==================================================== */}
               {/* SECTION 1: DASHBOARD                                 */}
               {/* ==================================================== */}
               {activeTab === 'dashboard' && stats && (
                 <div className="space-y-6">
-                  
+
                   {/* Top KPI Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
@@ -1092,7 +1075,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       {CANONICAL_STATUSES.map((st) => {
                         const count = stats.statusCounts[st] || 0;
                         return (
-                          <div 
+                          <div
                             key={st}
                             onClick={() => {
                               setOrderStatusFilter(st);
@@ -1189,9 +1172,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               </td>
                               <td className="p-3 font-bold text-[#141414]">₹{o.grand_total.toLocaleString('en-IN')}</td>
                               <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  o.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                                }`}>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${o.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                  }`}>
                                   {o.payment_method} ({o.payment_status})
                                 </span>
                               </td>
@@ -1224,7 +1206,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               {/* ==================================================== */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
-                  
+
                   {/* Search and Filters */}
                   <div className="p-4 rounded-2xl bg-white border border-[#E8DFD8] flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-2 flex-1 max-w-md bg-[#FAF8F5] p-2.5 rounded-xl border border-[#D8CCC2]">
@@ -1301,9 +1283,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                                 <td className="p-3.5">
                                   <span className="font-serif font-bold text-sm text-[#141414] block">₹{ord.grand_total.toLocaleString('en-IN')}</span>
-                                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[9px] font-bold ${
-                                    ord.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                                  }`}>
+                                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[9px] font-bold ${ord.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                    }`}>
                                     {ord.payment_method} • {ord.payment_status}
                                   </span>
                                 </td>
@@ -1412,9 +1393,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/70 text-[#FAF8F5] text-[9px] font-bold uppercase tracking-wider backdrop-blur-xs">
                             {p.category_name}
                           </span>
-                          <span className={`absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                            p.stock <= 3 ? 'bg-red-600 text-white' : 'bg-emerald-700 text-white'
-                          }`}>
+                          <span className={`absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${p.stock <= 3 ? 'bg-red-600 text-white' : 'bg-emerald-700 text-white'
+                            }`}>
                             {p.stock} In Stock
                           </span>
                         </div>
@@ -1498,7 +1478,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               {c.phone ? (
                                 <a
                                   href={`https://wa.me/91${c.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                                    `Greetings ${c.name} from ROYALS Atelier Jaipur.`
+                                    `Greetings ${c.name} from Lucknow Chikan Emporium.`
                                   )}`}
                                   target="_blank"
                                   rel="noreferrer"
@@ -1524,7 +1504,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               {/* ==================================================== */}
               {activeTab === 'analytics' && analytics && (
                 <div className="space-y-6">
-                  
+
                   {/* Revenue Summary */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
@@ -1542,14 +1522,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <div className="p-5 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-1">
                       <span className="text-xs font-semibold text-[#8C785A] uppercase tracking-wider">Total Consignments</span>
                       <h4 className="text-2xl font-serif font-bold text-[#141414]">{analytics.totalOrders}</h4>
-                      <p className="text-[11px] text-[#706B65]">Processed by Jaipur Atelier</p>
+                      <p className="text-[11px] text-[#706B65]">Processed by Lucknow Atelier</p>
                     </div>
                   </div>
 
                   {/* Top Selling Products */}
                   <div className="p-6 rounded-2xl bg-white border border-[#E8DFD8] shadow-sm space-y-4">
                     <h4 className="font-serif font-bold text-base text-[#141414]">Top Selling Couture Ensembles</h4>
-                    
+
                     <div className="space-y-3">
                       {analytics.topProducts && analytics.topProducts.map((tp: any, idx: number) => (
                         <div key={tp.id} className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E8DFD8] flex items-center justify-between gap-4">
@@ -1619,9 +1599,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             <td className="p-3 font-bold">{inv.size}</td>
                             <td className="p-3 font-mono font-bold">{inv.stock_quantity}</td>
                             <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                inv.stock_quantity <= 3 ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${inv.stock_quantity <= 3 ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                                }`}>
                                 {inv.stock_quantity <= 3 ? 'Low Stock' : 'Optimal'}
                               </span>
                             </td>
@@ -1684,9 +1663,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             <td className="p-3 font-mono">{cp.usage_count} times</td>
                             <td className="p-3 text-[#706B65]">{cp.expiry_date}</td>
                             <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                cp.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cp.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'
+                                }`}>
                                 {cp.is_active ? 'Active' : 'Disabled'}
                               </span>
                             </td>
@@ -1732,7 +1710,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {selectedOrder && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm">
           <div className="relative w-full max-w-4xl bg-[#FAF8F5] rounded-3xl shadow-2xl border border-[#C5A880] overflow-hidden flex flex-col max-h-[92vh]">
-            
+
             {/* Modal Header */}
             <div className="p-5 bg-[#141414] text-white border-b border-[#C5A880]/30 flex items-center justify-between">
               <div>
@@ -1769,7 +1747,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              
+
               {statusSuccessMessage && (
                 <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1779,7 +1757,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
               {/* Top Summary Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
+
                 {/* Patron & Shipping */}
                 <div className="p-4 rounded-2xl bg-white border border-[#E8DFD8] space-y-2">
                   <h4 className="font-serif font-bold text-xs uppercase tracking-wider text-[#8C785A]">
@@ -1797,7 +1775,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   {selectedOrder.customer_phone && (
                     <a
                       href={`https://wa.me/91${selectedOrder.customer_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                        `Hello ${selectedOrder.customer_name}, this is ROYALS Atelier Jaipur updating you on Order #${selectedOrder.order_number}.`
+                        `Hello ${selectedOrder.customer_name}, this is Lucknow Chikan Emporium updating you on Order #${selectedOrder.order_number}.`
                       )}`}
                       target="_blank"
                       rel="noreferrer"
@@ -1824,9 +1802,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[#706B65]">Payment Status:</span>
-                    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                      selectedOrder.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${selectedOrder.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
                       {selectedOrder.payment_status}
                     </span>
                   </div>
@@ -2114,7 +2091,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {isAddingProduct && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="relative w-full max-w-2xl bg-[#FAF8F5] rounded-3xl shadow-2xl border border-[#C5A880] overflow-hidden flex flex-col max-h-[92vh]">
-            
+
             <div className="p-5 bg-[#141414] text-white border-b border-[#C5A880]/30 flex items-center justify-between">
               <h3 className="font-serif font-bold text-base text-white">
                 {editingProductId ? 'Edit Couture Creation' : 'Add New Royal Creation to Catalog'}

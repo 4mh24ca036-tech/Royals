@@ -28,15 +28,15 @@ export function downloadInvoicePdf(order: Order) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(140, 120, 90);
-  doc.text('HAUTE COUTURE & LUXURY INDIAN ETHNIC ATELIER', 14, 29);
+  doc.text('HAUTE COUTURE & LUXURY CHIKANKARI ETHNIC ATELIER', 14, 29);
 
   // Store Contact Info (Right aligned)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(70, 70, 70);
-  doc.text('Road No. 6, District Chaksu, Jaipur, Rajasthan, India', pageWidth - 14, 20, { align: 'right' });
-  doc.text('Phone: +91 8000461784 | Email: concierge@royals.com', pageWidth - 14, 25, { align: 'right' });
-  doc.text('GSTIN: 08AAACR8942K1Z5 | State: 08 - Rajasthan', pageWidth - 14, 30, { align: 'right' });
+  doc.text('6, Lal Ji Tandon Marg (Khun Khun Ji Road), Chowk, Lucknow, Uttar Pradesh – 226003, India', pageWidth - 14, 20, { align: 'right' });
+  doc.text('Phone: +91 8000461784 | Email: concierge@lucknowchikanemporium.com', pageWidth - 14, 25, { align: 'right' });
+  doc.text('GSTIN: 09AAACR8942K1Z3 | State: 09 - Uttar Pradesh', pageWidth - 14, 30, { align: 'right' });
 
   // Divider line
   doc.setDrawColor(216, 204, 194);
@@ -188,7 +188,7 @@ export function downloadInvoicePdf(order: Order) {
   notesY += 4.5;
   doc.text('1. Handcrafted luxury garments. Custom bridal orders are non-refundable.', 14, notesY);
   notesY += 4;
-  doc.text('2. Subject to Jaipur jurisdiction only.', 14, notesY);
+  doc.text('2. Subject to Lucknow jurisdiction only.', 14, notesY);
   notesY += 4;
   doc.text('3. This is a computer generated digital invoice authorized by ROYALS Atelier.', 14, notesY);
 
@@ -198,7 +198,7 @@ export function downloadInvoicePdf(order: Order) {
   doc.setFont('times', 'italic');
   doc.setFontSize(8);
   doc.setTextColor(140, 120, 90);
-  doc.text('ROYALS Jaipur Atelier', 20, notesY + 15);
+  doc.text('Lucknow Chikan Emporium', 20, notesY + 15);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.text('AUTHORIZED SIGNATORY', 20, notesY + 22);
@@ -364,7 +364,7 @@ export async function downloadPaymentReceiptPdf(order: Order): Promise<void> {
   doc.setFontSize(8.5);
   doc.setTextColor(70, 70, 70);
   doc.text('Your order is protected under the ROYALS Verified Transit & Authenticity Guarantee.', 28, supportY + 17);
-  doc.text('WhatsApp Hotline: +91 8000461784 | Jaipur Atelier', 28, supportY + 23);
+  doc.text('WhatsApp Hotline: +91 8000461784 | Lucknow Atelier', 28, supportY + 23);
 
   // Footer
   doc.setFont('helvetica', 'normal');

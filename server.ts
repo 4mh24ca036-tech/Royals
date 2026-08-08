@@ -41,27 +41,27 @@ async function startServer() {
   // Store information API endpoint
   app.get('/api/store-info', (req, res) => {
     res.json({
-      brandName: 'ROYALS',
-      tagline: 'Haute Couture & Heritage Indian Ethnic Wear',
+      brandName: 'Lucknow Chikan Emporium',
+      tagline: 'Heritage Chikankari & Luxury Indian Ethnic Wear',
       phone: '8000461784',
       displayPhone: '+91 8000461784',
       whatsappUrl: 'https://wa.me/918000461784',
       address: {
-        road: 'Road No. 6',
-        district: 'District Chaksu',
-        city: 'Jaipur',
-        state: 'Rajasthan',
+        road: '6, Lal Ji Tandon Marg (Khun Khun Ji Road)',
+        district: 'Opposite Munnu Lal Dharamshala, Near Domino\'s Pizza',
+        city: 'Lucknow',
+        state: 'Uttar Pradesh',
         country: 'India',
-        pincode: '303901',
-        formatted: 'Road No. 6, District Chaksu, Jaipur, Rajasthan, India'
+        pincode: '226003',
+        formatted: '6, Lal Ji Tandon Marg (Khun Khun Ji Road), Opposite Munnu Lal Dharamshala, Near Domino\'s Pizza, Chowk, Lucknow, Uttar Pradesh – 226003, India'
       },
       businessHours: {
         weekdays: '10:00 AM - 8:30 PM IST',
         sundays: '11:00 AM - 7:00 PM IST',
         timezone: 'Asia/Kolkata (IST)'
       },
-      gstin: '08AAACR8942K1Z5',
-      stateCode: '08 - Rajasthan'
+      gstin: '09AAACR8942K1Z3',
+      stateCode: '09 - Uttar Pradesh'
     });
   });
 

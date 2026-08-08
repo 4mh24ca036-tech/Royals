@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Filter, 
-  SlidersHorizontal, 
-  X, 
-  Sparkles, 
-  ArrowUpDown, 
-  Check, 
-  Search, 
-  RefreshCw 
+import {
+  Filter,
+  SlidersHorizontal,
+  X,
+  Sparkles,
+  ArrowUpDown,
+  Check,
+  Search,
+  RefreshCw
 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import { ProductCard } from './ProductCard';
@@ -112,11 +112,11 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
   return (
     <section className="py-10 bg-[#FAF9F6] min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
-        
+
         {/* Page Title & Breadcrumb */}
         <div className="mb-8 space-y-2">
           <div className="flex items-center gap-2 text-[10px] text-[#8E8A81] uppercase tracking-[0.25em] font-cinzel">
-            <span>Jaipur Haute Couture</span>
+            <span>Lucknow Chikan Emporium Haute Couture</span>
             <span>/</span>
             <span className="text-[#C5A059]">{wishlistOnly ? 'Saved Wishlist' : activeCategoryObj ? activeCategoryObj.name : 'All Ensembles'}</span>
           </div>
@@ -130,8 +130,8 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
                 {wishlistOnly
                   ? 'Your curated selections of handcrafted masterpieces.'
                   : activeCategoryObj
-                  ? activeCategoryObj.description
-                  : 'Exclusive bridal lehengas, achkans, and Banarasi drapes handcrafted with pure gold zari.'}
+                    ? activeCategoryObj.description
+                    : 'Exclusive bridal lehengas, achkans, and Banarasi drapes handcrafted with pure gold zari.'}
               </p>
             </div>
 
@@ -162,11 +162,10 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
         <div className="mb-8 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           <button
             onClick={() => onSelectCategory(null)}
-            className={`px-5 py-2 text-[10px] uppercase tracking-[0.2em] font-medium whitespace-nowrap transition-all cursor-pointer ${
-              selectedCategory === null
+            className={`px-5 py-2 text-[10px] uppercase tracking-[0.2em] font-medium whitespace-nowrap transition-all cursor-pointer ${selectedCategory === null
                 ? 'bg-[#1A1A1A] text-white shadow-sm'
                 : 'bg-white border border-[#E5E1D8] text-[#6B6658] hover:border-[#C5A059] hover:text-[#1A1A1A]'
-            }`}
+              }`}
           >
             All Collections ({products.length})
           </button>
@@ -177,11 +176,10 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
               <button
                 key={cat.id}
                 onClick={() => onSelectCategory(cat.id)}
-                className={`px-5 py-2 text-[10px] uppercase tracking-[0.2em] font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  selectedCategory === cat.id
+                className={`px-5 py-2 text-[10px] uppercase tracking-[0.2em] font-medium whitespace-nowrap transition-all cursor-pointer ${selectedCategory === cat.id
                     ? 'bg-[#1A1A1A] text-white shadow-sm'
                     : 'bg-white border border-[#E5E1D8] text-[#6B6658] hover:border-[#C5A059] hover:text-[#1A1A1A]'
-                }`}
+                  }`}
               >
                 {cat.name} ({count})
               </button>
@@ -191,7 +189,7 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
 
         {/* Filter Controls & Sorting Toolbar */}
         <div className="mb-8 p-4 bg-white border border-[#E5E1D8] shadow-sm flex flex-wrap items-center justify-between gap-4">
-          
+
           {/* Left: Filter dropdowns on desktop */}
           <div className="hidden lg:flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-[#6B6658] mr-2 font-cinzel">
@@ -231,11 +229,10 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
             {/* New Arrivals Toggle */}
             <button
               onClick={() => setShowOnlyNewArrivals(!showOnlyNewArrivals)}
-              className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium border transition-colors cursor-pointer flex items-center gap-1.5 ${
-                showOnlyNewArrivals
+              className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-medium border transition-colors cursor-pointer flex items-center gap-1.5 ${showOnlyNewArrivals
                   ? 'bg-[#1A1A1A] text-[#C5A059] border-[#1A1A1A]'
                   : 'bg-[#FAF9F6] border-[#E5E1D8] text-[#6B6658] hover:border-[#C5A059]'
-              }`}
+                }`}
             >
               <Sparkles className="w-3 h-3 text-[#C5A059]" />
               <span>New Arrivals Only</span>
@@ -325,7 +322,7 @@ export const ProductListingView: React.FC<ProductListingViewProps> = ({
       {/* Mobile Filter Drawer */}
       {isMobileFilterOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsMobileFilterOpen(false)}
           />

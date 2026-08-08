@@ -605,7 +605,7 @@ router.get('/track/:query', async (req, res) => {
 
     const standardStages = [
 
-      { key: 'Order Placed', aliases: ['Order Placed'], label: 'Order Placed', desc: 'Order verified & recorded in Jaipur Atelier' },
+      { key: 'Order Placed', aliases: ['Order Placed'], label: 'Order Placed', desc: 'Order verified & recorded in Lucknow Atelier' },
 
       { key: 'Payment Confirmed', aliases: ['Payment Confirmed'], label: 'Payment Confirmed', desc: 'Payment settlement verified' },
 

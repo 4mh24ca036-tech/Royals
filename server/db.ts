@@ -385,7 +385,7 @@ function seedInitialData(db: Database) {
     db.run(
       `INSERT INTO addresses (id, user_id, full_name, phone, address_line1, address_line2, landmark, city, state, pincode, is_default, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      ['addr_1', 'usr_1', 'Princess Gayatri', '8000461784', 'Suite 402, Royal Heritage Haveli', 'Road No. 6, Chaksu', 'Near Pink City Gateway', 'Jaipur', 'Rajasthan', '303901', 1, new Date().toISOString()]
+      ['addr_1', 'usr_1', 'Princess Gayatri', '8000461784', 'Suite 402, Royal Heritage Haveli', 'Chowk, Lucknow', 'Near Domino\'s Pizza', 'Lucknow', 'Uttar Pradesh', '226003', 1, new Date().toISOString()]
     );
   }
 
@@ -417,7 +417,7 @@ function seedInitialData(db: Database) {
         id: 'cat_anarkali_kurtas',
         name: 'Flared Anarkali & Angrakha Kurtas',
         slug: 'anarkali-and-angrakha-kurtas',
-        description: 'Sweeping 48-kali floor-length Anarkalis, Banarasi zari yokes, and Jaipuri side-tie Angrakhas crafted in pure silks.',
+        description: 'Sweeping 48-kali floor-length Anarkalis, Banarasi zari yokes, and Lucknowi side-tie Angrakhas crafted in pure silks.',
         image_url: '/images/emerald_anarkali_kurta.jpg',
         mobile_image_url: '',
         display_order: 3
@@ -435,7 +435,7 @@ function seedInitialData(db: Database) {
         id: 'cat_bridal_lehengas',
         name: 'Imperial Bridal & Festive Couture',
         slug: 'bridal-and-festive-couture',
-        description: 'Heirloom velvet kurti lehenga sets, Zardozi dupattas, and grand wedding ensembles from the Jaipur atelier.',
+        description: 'Heirloom velvet kurti lehenga sets, Zardozi dupattas, and grand wedding ensembles from the Lucknow atelier.',
         image_url: '/images/kurta_chanderi_sharara.jpg',
         mobile_image_url: '',
         display_order: 5
@@ -444,7 +444,7 @@ function seedInitialData(db: Database) {
         id: 'cat_heritage_accessories',
         name: 'Heritage Accessories & Safas',
         slug: 'heritage-accessories',
-        description: 'Jaipuri royal safas, hand-woven chanderi stoles, gilded crest buttons, and handcrafted accessories.',
+        description: 'Lucknowi royal safas, hand-woven chanderi stoles, gilded crest buttons, and handcrafted accessories.',
         image_url: '/images/kurta_jaipur_angrakha.jpg',
         mobile_image_url: '',
         display_order: 6
@@ -473,14 +473,14 @@ function seedInitialData(db: Database) {
         slug: 'maharaja-ivory-raw-silk-kurta-pajama-set',
         category_id: 'cat_mens_kurtas',
         category_name: "Royal Men's Kurta Sets",
-        price: 38000,
-        discount_price: 32500,
+        price: 500,
+        discount_price: null,
         stock: 14,
         fabric: '100% Pure Handloom Matka Raw Silk',
         embroidery: 'Antique Gold Marodi & Dabka Work on Mandarin Collar & Cuffs',
         color: 'Warm Ivory Cream & Antique Gold',
         sizes_json: JSON.stringify(['36 (S)', '38 (M)', '40 (L)', '42 (XL)', '44 (XXL)', 'Custom Bespoke Fit']),
-        description: "An imperial men's kurta tailored from heavyweight pure raw silk hand-loomed in Varanasi. Features signature 24K gold-plated Jaipur buttons, concealed side pockets, and fine gold dabka threadwork on the collar. Paired with a tailored modal silk churidar.",
+        description: "An imperial men's kurta tailored from heavyweight pure raw silk hand-loomed in Varanasi. Features signature 24K gold-plated Lucknow buttons, concealed side pockets, and fine gold dabka threadwork on the collar. Paired with a tailored modal silk churidar.",
         care_instructions: 'Strictly Specialist Dry Clean Only. Preserve in the complimentary heirloom muslin box.',
         images_json: JSON.stringify([
           '/images/mens_raw_silk_kurta.jpg',
@@ -498,12 +498,12 @@ function seedInitialData(db: Database) {
         slug: 'noor-e-lucknow-blush-chikankari-kurta-set',
         category_id: 'cat_womens_kurtas',
         category_name: "Designer Women's Kurta Sets",
-        price: 42000,
-        discount_price: 36900,
+        price: 500,
+        discount_price: null,
         stock: 12,
         fabric: 'Pure Viscose Georgette with Pure Organza Scalloped Dupatta',
         embroidery: 'Lucknowi Shadow Work, Bakhiya, Phanda & 24K Gold Mukaish Badla',
-        color: 'Jaipur Powder Blush Pink & Soft Gold',
+        color: 'Lucknow Powder Blush Pink & Soft Gold',
         sizes_json: JSON.stringify(['XS (32)', 'S (34)', 'M (36)', 'L (38)', 'XL (40)', 'XXL (42)', 'Custom Tailoring']),
         description: 'Mastercrafted by hereditary Chikankari artisans with over 120 hours of needlecraft. Dotted with hand-applied 24K pure gold mukaish dots. Includes matching straight trousers with bottom lace detailing and a 2.5-meter organza dupatta with scalloped borders.',
         care_instructions: 'Dry Clean Only. Steam iron on reverse.',
@@ -523,11 +523,11 @@ function seedInitialData(db: Database) {
         slug: 'marwar-midnight-bandhgala-kurta-ensemble',
         category_id: 'cat_bandhgala_kurtas',
         category_name: 'Royal Bandhgala & Jacket Kurta Sets',
-        price: 54000,
-        discount_price: 48000,
+        price: 500,
+        discount_price: null,
         stock: 9,
         fabric: 'High-Density Raw Silk & Structured Wool Blend',
-        embroidery: 'Tonal Resham & Hand-Set Jaipur Crest Metallic Buttons',
+        embroidery: 'Tonal Resham & Hand-Set Lucknow Crest Metallic Buttons',
         color: 'Midnight Royal Charcoal & Dark Gunmetal',
         sizes_json: JSON.stringify(['38 (M)', '40 (L)', '42 (XL)', '44 (XXL)']),
         description: 'A sharp contemporary royal silhouette fusing traditional achkan cuts with modern tailoring. Features high collar bandhgala construction, crest buttons cast in brass, and matching slim trousers.',
@@ -548,8 +548,8 @@ function seedInitialData(db: Database) {
         slug: 'begum-emerald-zari-flared-anarkali-kurta-set',
         category_id: 'cat_anarkali_kurtas',
         category_name: 'Flared Anarkali & Angrakha Kurtas',
-        price: 58000,
-        discount_price: 51000,
+        price: 500,
+        discount_price: null,
         stock: 10,
         fabric: 'Pure Silk Georgette & Banarasi Weave Zari Yoke',
         embroidery: 'Real Gold Kadhwa Zari, Gota Patti Vines & Pearl Borders',
@@ -573,14 +573,14 @@ function seedInitialData(db: Database) {
         slug: 'chaksu-saffron-hand-embroidered-angrakha-kurta',
         category_id: 'cat_mens_kurtas',
         category_name: "Royal Men's Kurta Sets",
-        price: 34000,
-        discount_price: 29900,
+        price: 500,
+        discount_price: null,
         stock: 15,
         fabric: '100% Pure Mulberry Silk',
-        embroidery: 'Jaipuri Gota Dori & Asymmetric Handcrafted Side Ties',
+        embroidery: 'Lucknowi Gota Dori & Asymmetric Handcrafted Side Ties',
         color: 'Royal Saffron Haldi & Burnished Gold',
         sizes_json: JSON.stringify(['36 (S)', '38 (M)', '40 (L)', '42 (XL)', '44 (XXL)']),
-        description: 'Archival Rajput court style Angrakha kurta featuring a crossover diagonal flap with handcrafted silk potli button ties, tailored in lustrous Jaipur silk with matching ivory churidar.',
+        description: 'Archival Nawabi court style Angrakha kurta featuring a crossover diagonal flap with handcrafted silk potli button ties, tailored in lustrous Lucknow silk with matching ivory churidar.',
         care_instructions: 'Gentle Dry Clean Only.',
         images_json: JSON.stringify([
           '/images/kurta_jaipur_angrakha.jpg',
@@ -598,11 +598,11 @@ function seedInitialData(db: Database) {
         slug: 'jodhpur-gota-patti-chanderi-kurta-sharara-set',
         category_id: 'cat_womens_kurtas',
         category_name: "Designer Women's Kurta Sets",
-        price: 46000,
-        discount_price: 39500,
+        price: 500,
+        discount_price: null,
         stock: 11,
         fabric: '100% Pure Chanderi Silk & Modal Satin Lining',
-        embroidery: 'Authentic Jaipur Hand Gota Patti, Sequin Floral Vines & Pearl Finishing',
+        embroidery: 'Authentic Lucknow Hand Gota Patti, Sequin Floral Vines & Pearl Finishing',
         color: 'Pristine Ivory Silk & Warm Champagne Gold',
         sizes_json: JSON.stringify(['XS (32)', 'S (34)', 'M (36)', 'L (38)', 'XL (40)']),
         description: 'A timeless three-piece couture kurta set featuring a straight-cut Chanderi silk kurta with all-over Gota work, tiered flared sharara pants, and a scalloped dupatta.',
@@ -623,8 +623,8 @@ function seedInitialData(db: Database) {
         slug: 'cobalt-brocade-nehru-jacket-silk-kurta-set',
         category_id: 'cat_bandhgala_kurtas',
         category_name: 'Royal Bandhgala & Jacket Kurta Sets',
-        price: 49000,
-        discount_price: 43000,
+        price: 500,
+        discount_price: null,
         stock: 8,
         fabric: 'Pure Raw Silk Kurta with Banarasi Brocade Waistcoat Jacket',
         embroidery: 'Metallic Gold Brocade Weave & Enamel Buttons',
@@ -648,11 +648,11 @@ function seedInitialData(db: Database) {
         slug: 'padmavati-velvet-kurti-kalidar-lehenga-ensemble',
         category_id: 'cat_bridal_lehengas',
         category_name: 'Imperial Bridal & Festive Couture',
-        price: 85000,
-        discount_price: 76000,
+        price: 500,
+        discount_price: null,
         stock: 7,
         fabric: 'Pure Silk Velvet & Tissue Organza',
-        embroidery: 'Jaipuri Zardozi, Piton Work & Real Gold Zari',
+        embroidery: 'Lucknowi Zardozi, Piton Work & Real Gold Zari',
         color: 'Deep Imperial Crimson & Gilded Gold',
         sizes_json: JSON.stringify(['Custom Bridal Fit', 'XS (32)', 'S (34)', 'M (36)', 'L (38)', 'XL (40)']),
         description: 'A majestic long kurti lehenga set crafted in rich velvet with authentic hand Zardozi craft, paired with a kalidar flared skirt and double organza dupatta.',
@@ -716,7 +716,7 @@ function seedInitialData(db: Database) {
       db.run(
         `INSERT INTO reviews (id, product_id, user_name, rating, comment, verified_purchase, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        [`rev_${prod.id}_2`, prod.id, 'Rohit & Radhika Mehra', 5, 'Ordered for our Jaipur destination wedding. Delivered right on schedule with custom sizing precision. Outstanding concierge assistance via WhatsApp.', 1, '2026-08-02T10:15:00.000Z']
+        [`rev_${prod.id}_2`, prod.id, 'Rohit & Radhika Mehra', 5, 'Ordered for our Lucknow destination wedding. Delivered right on schedule with custom sizing precision. Outstanding concierge assistance via WhatsApp.', 1, '2026-08-02T10:15:00.000Z']
       );
     }
   }
@@ -758,9 +758,9 @@ function seedInitialData(db: Database) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         id, title, `boutique-${index + 1}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`,
-        'cat_womens_kurtas', "Designer Women's Kurta Sets", 599 + ((index % 5) * 100), null, 10,
+        'cat_womens_kurtas', "Designer Women's Kurta Sets", 500, null, 10,
         'Comfortable blended cotton', embroidery, color, JSON.stringify(['S', 'M', 'L', 'XL', 'XXL']),
-        `${title}, selected for the ROYALS Jaipur boutique collection.`, 'Gentle hand wash or dry clean as preferred.',
+        `${title}, selected for the Lucknow Chikan Emporium boutique collection.`, 'Gentle hand wash or dry clean as preferred.',
         JSON.stringify([`/images/catalog/${image}`]), 4.8, 0, index < 8 ? 1 : 0, index < 6 ? 1 : 0,
         100 + index, suppliedNow, suppliedNow
       ]
@@ -768,15 +768,21 @@ function seedInitialData(db: Database) {
   });
 
   // Run only once for existing databases. It preserves all products while
-  // bringing the initial catalogue price band to the requested ₹500–₹1000.
+  // setting the catalogue price to the requested ₹500.
   db.run('CREATE TABLE IF NOT EXISTS app_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
   const priceMigration = db.exec("SELECT id FROM app_migrations WHERE id = 'catalog_price_band_20260807'");
   if (!priceMigration[0]?.values.length) {
-    const existingProducts = db.exec('SELECT id FROM products ORDER BY display_order ASC, created_at ASC')[0]?.values || [];
-    existingProducts.forEach((row: any[], index: number) => {
-      db.run('UPDATE products SET price = ?, discount_price = NULL, updated_at = ? WHERE id = ?', [500 + ((index % 6) * 100), suppliedNow, row[0]]);
-    });
+    db.run('UPDATE products SET price = 500, discount_price = NULL, updated_at = ? WHERE 1=1', [suppliedNow]);
     db.run("INSERT INTO app_migrations (id, applied_at) VALUES ('catalog_price_band_20260807', ?)", [suppliedNow]);
+  }
+
+  // ── Force all product prices to ₹500 (Lucknow Chikan Emporium rebrand) ──
+  // Runs once on existing databases to reset any previously varied prices.
+  const priceFlatMigration = db.exec("SELECT id FROM app_migrations WHERE id = 'price_flat_500_20260808'");
+  if (!priceFlatMigration[0]?.values.length) {
+    db.run('UPDATE products SET price = 500, discount_price = NULL, updated_at = ? WHERE 1=1', [suppliedNow]);
+    db.run("INSERT OR IGNORE INTO app_migrations (id, applied_at) VALUES ('price_flat_500_20260808', ?)", [suppliedNow]);
+    console.log('Lucknow Chikan Emporium: All product prices set to ₹500.');
   }
 
   // ── Catalog images migration ──────────────────────────────────────────────
@@ -868,7 +874,7 @@ function seedInitialData(db: Database) {
       const garmentNum = String(num).padStart(2, '0');
       const productId = `prod_boutique_${garmentNum}`;
       const uploadUrl = `/uploads/${productId}/garment-${garmentNum}.jpeg`;
-      const price = 500 + ((num % 6) * 100);
+      const price = 500;
       const displayOrder = 100 + num;
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + `-${garmentNum}`;
 
@@ -884,7 +890,7 @@ function seedInitialData(db: Database) {
           productId, title, slug, categoryId, "Designer Women's Kurta Sets",
           price, 'Comfortable blended cotton', embroidery, color,
           JSON.stringify(['S', 'M', 'L', 'XL', 'XXL']),
-          `${title}, curated for the ROYALS Jaipur boutique collection.`,
+          `${title}, curated for the Lucknow Chikan Emporium boutique collection.`,
           'Gentle hand wash or dry clean as preferred.',
           JSON.stringify([uploadUrl]),
           num <= 8 ? 1 : 0, num <= 6 ? 1 : 0,
@@ -921,7 +927,7 @@ function seedInitialData(db: Database) {
       { id: 'coup_1', code: 'ROYAL10', discount_type: 'percentage', discount_value: 10, min_spend: 25000, max_discount: 15000, is_active: 1, usage_count: 142, expiry_date: '2026-12-31' },
       { id: 'coup_2', code: 'HERITAGE20', discount_type: 'percentage', discount_value: 20, min_spend: 50000, max_discount: 30000, is_active: 1, usage_count: 89, expiry_date: '2026-12-31' },
       { id: 'coup_3', code: 'FIRSTROYAL', discount_type: 'flat', discount_value: 5000, min_spend: 30000, max_discount: 5000, is_active: 1, usage_count: 310, expiry_date: '2026-12-31' },
-      { id: 'coup_4', code: 'JAIPUR15', discount_type: 'percentage', discount_value: 15, min_spend: 40000, max_discount: 20000, is_active: 1, usage_count: 64, expiry_date: '2026-12-31' }
+      { id: 'coup_4', code: 'LUCKNOW15', discount_type: 'percentage', discount_value: 15, min_spend: 40000, max_discount: 20000, is_active: 1, usage_count: 64, expiry_date: '2026-12-31' }
     ];
 
     for (const c of coupons) {
@@ -947,11 +953,11 @@ function seedInitialData(db: Database) {
       fullName: 'Princess Gayatri',
       phone: '8000461784',
       addressLine1: 'Suite 402, Royal Heritage Haveli',
-      addressLine2: 'Road No. 6, Chaksu',
-      landmark: 'Near Pink City Gateway',
-      city: 'Jaipur',
-      state: 'Rajasthan',
-      pincode: '303901'
+      addressLine2: 'Chowk, Lucknow',
+      landmark: 'Near Domino\'s Pizza',
+      city: 'Lucknow',
+      state: 'Uttar Pradesh',
+      pincode: '226003'
     };
 
     db.run(
@@ -1030,7 +1036,7 @@ function seedInitialData(db: Database) {
     db.run(
       `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      ['hist_3', orderId, 'Preparing', 'Master artisans at Jaipur Atelier commenced custom fitting and finishing quality check', 'Atelier Director', '04 Aug 2026', '10:42 AM', '2026-08-04T10:42:00.000Z']
+      ['hist_3', orderId, 'Preparing', 'Master artisans at Lucknow Atelier commenced custom fitting and finishing quality check', 'Atelier Director', '04 Aug 2026', '10:42 AM', '2026-08-04T10:42:00.000Z']
     );
 
     // Notifications
@@ -1077,7 +1083,7 @@ function seedInitialData(db: Database) {
         id: 'banner_001',
         title: 'THE IMPERIAL KURTA ATELIER',
         subtitle: 'HERITAGE COUTURE 2026',
-        description: 'Handcrafted in pure handloom raw silk, Chanderi, and organza with antique Jaipur Zardozi, Chikankari, and real 24K gold mukaish work.',
+        description: 'Handcrafted in pure handloom raw silk, Chanderi, and organza with antique Lucknow Zardozi, Chikankari, and real 24K gold mukaish work.',
         image_url: '/images/hero_royal_kurtas_1785856586452.jpg',
         mobile_image_url: '',
         button_text: 'Explore Royal Kurtas',
@@ -1105,7 +1111,7 @@ function seedInitialData(db: Database) {
         id: 'banner_003',
         title: 'THE MAHARAJA RAW SILK SETS',
         subtitle: "REGAL MEN'S ETHNIC COUTURE",
-        description: 'Pure handloom raw silk kurta pajama sets and structured Bandhgalas with handcrafted 24K gold plated Jaipur crest buttons.',
+        description: 'Pure handloom raw silk kurta pajama sets and structured Bandhgalas with handcrafted 24K gold plated Lucknow crest buttons.',
         image_url: '/images/mens_raw_silk_kurta_1785856598401.jpg',
         mobile_image_url: '',
         button_text: "Explore Men's Silk Kurtas",
@@ -1141,7 +1147,7 @@ function seedInitialData(db: Database) {
       { id: 'ed_02', image_url: '/uploads/prod_boutique_41/garment-41.jpeg', label: 'Festive Couture',   subtitle: 'Celebrate in Royal Style',         category_id: 'cat_anarkali_kurtas', display_order: 1 },
       { id: 'ed_03', image_url: '/uploads/prod_boutique_51/garment-51.jpeg', label: 'Bridal Collection', subtitle: 'Your Wedding, Our Masterpiece',     category_id: 'cat_bridal_lehengas', display_order: 2 },
       { id: 'ed_04', image_url: '/uploads/prod_boutique_60/garment-60.jpeg', label: 'Trending Now',      subtitle: 'Most Loved This Season',           category_id: 'cat_womens_kurtas',   display_order: 3 },
-      { id: 'ed_05', image_url: '/uploads/prod_boutique_36/garment-36.jpeg', label: 'Best Sellers',      subtitle: 'Timeless Jaipur Classics',         category_id: 'cat_womens_kurtas',   display_order: 4 },
+      { id: 'ed_05', image_url: '/uploads/prod_boutique_36/garment-36.jpeg', label: 'Best Sellers',      subtitle: 'Timeless Lucknow Classics',         category_id: 'cat_womens_kurtas',   display_order: 4 },
     ];
     for (const card of editorialCards) {
       db.run(
