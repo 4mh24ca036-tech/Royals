@@ -46,7 +46,6 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^22.14.0",
     "@types/sql.js": "^1.4.11",
-    "@vitejs/plugin-react": "^5.0.4",
     "@vitest/coverage-v8": "^1.1.0",
     "@vitest/ui": "^1.1.0",
     "autoprefixer": "^10.4.21",
