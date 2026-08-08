@@ -43,7 +43,7 @@ export const StoreLocatorModal: React.FC<StoreLocatorModalProps> = ({ isOpen, on
           {/* Map Image / Visual */}
           <div className="relative aspect-[16/9] overflow-hidden border border-[#E5E1D8] bg-[#EAE7E0]">
             <img
-              src="/images/catalog/royals-garment-01.jpeg"
+              src="/uploads/prod_boutique_01/garment-01.jpeg"
               alt="Jaipur Royal Architecture"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"

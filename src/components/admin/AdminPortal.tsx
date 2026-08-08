@@ -1381,7 +1381,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <div className="relative aspect-4/3 bg-gray-100 overflow-hidden">
                           <img
                             referrerPolicy="no-referrer"
-                            src={p.images?.[0] || '/images/catalog/royals-garment-01.jpeg'}
+                            src={p.images?.[0] || '/uploads/prod_boutique_01/garment-01.jpeg'}
                             alt={p.title}
                             className="w-full h-full object-cover"
                           />
@@ -1890,7 +1890,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <div className="flex items-center gap-3">
                         <img
                           referrerPolicy="no-referrer"
-                          src={item.product_image || '/images/catalog/royals-garment-01.jpeg'}
+                          src={item.product_image || '/uploads/prod_boutique_01/garment-01.jpeg'}
                           alt={item.product_title}
                           className="w-12 h-12 object-cover rounded-xl border border-[#E8DFD8]"
                         />

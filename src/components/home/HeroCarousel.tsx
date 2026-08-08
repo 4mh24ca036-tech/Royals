@@ -32,7 +32,7 @@ const FALLBACK_SLIDES: BannerSlide[] = [
     title: 'THE IMPERIAL KURTA ATELIER',
     subtitle: 'HERITAGE COUTURE 2026',
     description: 'Handcrafted in pure handloom raw silk, Chanderi, and organza with antique Jaipur Zardozi, Chikankari, and real 24K gold mukaish work.',
-    image_url: '/images/hero_royal_kurtas_1785856586452.jpg',
+    image_url: '/images/hero_royal_kurtas.jpg',
     mobile_image_url: '',
     button_text: 'Explore Royal Kurtas',
     button_link: '',
@@ -46,7 +46,7 @@ const FALLBACK_SLIDES: BannerSlide[] = [
     title: 'LUCKNOWI CHIKANKARI & MUKAISH',
     subtitle: "DESIGNER WOMEN'S KURTA SETS",
     description: 'Ethereal pastel georgettes, scalloped organza dupattas, and intricate hand needlecraft tailored for festive grandeur.',
-    image_url: '/images/women_chikankari_kurta_1785856609497.jpg',
+    image_url: '/images/women_chikankari_kurta.jpg',
     mobile_image_url: '',
     button_text: "Explore Women's Kurtas",
     button_link: '',
@@ -60,7 +60,7 @@ const FALLBACK_SLIDES: BannerSlide[] = [
     title: 'THE MAHARAJA RAW SILK SETS',
     subtitle: "REGAL MEN'S ETHNIC COUTURE",
     description: 'Pure handloom raw silk kurta pajama sets and structured Bandhgalas with handcrafted 24K gold plated Jaipur crest buttons.',
-    image_url: '/images/mens_raw_silk_kurta_1785856598401.jpg',
+    image_url: '/images/mens_raw_silk_kurta.jpg',
     mobile_image_url: '',
     button_text: "Explore Men's Silk Kurtas",
     button_link: '',
@@ -180,7 +180,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ onExplore, onOpenSto
               const el = e.target as HTMLImageElement;
               if (!el.dataset.fallbackApplied) {
                 el.dataset.fallbackApplied = '1';
-                el.src = '/images/hero_royal_kurtas_1785856586452.jpg';
+                el.src = '/images/hero_royal_kurtas.jpg';
               }
             }}
             className="w-full h-full object-cover object-top"
