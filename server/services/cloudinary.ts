@@ -1,220 +1,251 @@
 /**
- * Cloudinary Service
- * Handles all cloud image storage, transformation, and optimization
+ * server/services/cloudinary.ts
+ *
+ * Cloudinary upload / delete service.
+ *
+ * Uses the Cloudinary REST API directly via Node's built-in fetch + FormData
+ * (available in Node 18+; the project targets Node 22).
+ *
+ * Upload strategy: SIGNED upload with api_key + api_secret.
+ * This does NOT depend on an unsigned upload preset, so it works regardless
+ * of how the Cloudinary account is configured.
+ *
+ * Environment variables read from process.env (loaded by dotenv in dev,
+ * injected by Vercel in production):
+ *   CLOUDINARY_CLOUD_NAME
+ *   CLOUDINARY_API_KEY
+ *   CLOUDINARY_API_SECRET
  */
 
-import https from 'https';
-import { URL } from 'url';
+import { createHash } from 'crypto';
 
-interface CloudinaryUploadResponse {
+// ── Types ─────────────────────────────────────────────────────────────────
+export interface CloudinaryUploadResponse {
   public_id: string;
   secure_url: string;
-  width: number;
-  height: number;
-  format: string;
-}
-
-interface CloudinaryTransformUrl {
   url: string;
   width: number;
   height: number;
+  format: string;
+  bytes: number;
 }
 
+// ── Signing helper ────────────────────────────────────────────────────────
+/**
+ * Generates a Cloudinary request signature.
+ * Spec: SHA-1( sorted_param_string + api_secret )
+ * Docs: https://cloudinary.com/documentation/upload_images#generating_authentication_signatures
+ */
+function sign(params: Record<string, string | number>, apiSecret: string): string {
+  const sorted = Object.entries(params)
+    .filter(([, v]) => v !== '' && v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&');
+
+  return createHash('sha1')
+    .update(sorted + apiSecret)
+    .digest('hex');
+}
+
+// ── CloudinaryService ─────────────────────────────────────────────────────
 export class CloudinaryService {
   private cloudName: string;
   private apiKey: string;
   private apiSecret: string;
-  private uploadPreset: string;
 
   constructor() {
-    this.cloudName = process.env.CLOUDINARY_CLOUD_NAME || '';
-    this.apiKey = process.env.CLOUDINARY_API_KEY || '';
-    this.apiSecret = process.env.CLOUDINARY_API_SECRET || '';
-    this.uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'royals_unsigned';
+    // Read from process.env — populated by dotenv in dev, by Vercel in prod.
+    this.cloudName = process.env.CLOUDINARY_CLOUD_NAME ?? '';
+    this.apiKey = process.env.CLOUDINARY_API_KEY ?? '';
+    this.apiSecret = process.env.CLOUDINARY_API_SECRET ?? '';
 
     if (!this.cloudName) {
-      console.warn('⚠️  CLOUDINARY_CLOUD_NAME not configured. Image uploads will fail.');
+      console.warn('[Cloudinary] CLOUDINARY_CLOUD_NAME is not set.');
+    } else if (
+      this.cloudName.includes('.') ||
+      this.cloudName.includes('/') ||
+      this.cloudName.startsWith('http') ||
+      this.cloudName.length > 30
+    ) {
+      // A Cloudinary cloud name is a short slug like "royals-couture", never a URL or UUID.
+      console.warn(
+        '[Cloudinary] CLOUDINARY_CLOUD_NAME looks invalid — value is ' +
+        this.cloudName.length + ' chars and may be a URL or UUID instead of a cloud name slug. ' +
+        'Find your cloud name at cloudinary.com/console (top-left of dashboard).'
+      );
     }
   }
 
+  isConfigured(): boolean {
+    return Boolean(this.cloudName && this.apiKey && this.apiSecret);
+  }
+
+  getCloudName(): string {
+    return this.cloudName;
+  }
+
   /**
-   * Upload an image file to Cloudinary
-   * Returns the secure URL and metadata
+   * Upload a file buffer to Cloudinary using the signed Upload API.
+   * Returns the upload response including secure_url and public_id.
    */
   async uploadImage(
     fileBuffer: Buffer,
     filename: string,
     folder: string = 'royals/products'
   ): Promise<CloudinaryUploadResponse> {
-    if (!this.cloudName) {
-      throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME.');
+    if (!this.isConfigured()) {
+      throw new Error(
+        'Cloudinary is not configured. ' +
+        'Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.'
+      );
     }
 
-    return new Promise((resolve, reject) => {
-      const formData = `--boundary\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/octet-stream\r\n\r\n`;
-      const formDataEnd = `\r\n--boundary\r\nContent-Disposition: form-data; name="folder"\r\n\r\n${folder}\r\n--boundary\r\nContent-Disposition: form-data; name="upload_preset"\r\n\r\n${this.uploadPreset}\r\n--boundary--\r\n`;
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
-      const buffer = Buffer.concat([
-        Buffer.from(formData),
-        fileBuffer,
-        Buffer.from(formDataEnd)
-      ]);
+    // Parameters that are included in the signature (must match what we send)
+    const sigParams: Record<string, string> = {
+      folder,
+      timestamp,
+    };
 
-      const url = new URL(`https://api.cloudinary.com/v1_1/${this.cloudName}/image/upload`);
-      const options = {
-        hostname: url.hostname,
-        path: url.pathname,
+    const signature = sign(sigParams, this.apiSecret);
+
+    // Build multipart form using native FormData (Node 22)
+    const form = new FormData();
+    // Attach the file as a Blob
+    const blob = new Blob([fileBuffer], { type: 'application/octet-stream' });
+    form.append('file', blob, filename);
+    form.append('folder', folder);
+    form.append('timestamp', timestamp);
+    form.append('api_key', this.apiKey);
+    form.append('signature', signature);
+
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/image/upload`;
+
+    let rawText = '';
+    try {
+      const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data; boundary=boundary',
-          'Content-Length': buffer.length
-        }
+        body: form,
+        // Do NOT set Content-Type — fetch sets it automatically with the correct boundary
+      });
+
+      rawText = await response.text();
+
+      const data = JSON.parse(rawText);
+
+      // Cloudinary returns { error: { message } } on failure
+      if (data.error) {
+        const hint = data.error.message?.includes('cloud_name')
+          ? ` (CLOUDINARY_CLOUD_NAME is ${this.cloudName.length} chars — it should be a short slug from your Cloudinary dashboard, not a URL or UUID)`
+          : '';
+        throw new Error(`Cloudinary API error: ${data.error.message}${hint}`);
+      }
+
+      if (!data.secure_url) {
+        throw new Error(
+          `Cloudinary upload returned no secure_url. ` +
+          `HTTP ${response.status}. Response: ${rawText.slice(0, 300)}`
+        );
+      }
+
+      return {
+        public_id: data.public_id,
+        secure_url: data.secure_url,
+        url: data.url ?? data.secure_url,
+        width: data.width ?? 0,
+        height: data.height ?? 0,
+        format: data.format ?? '',
+        bytes: data.bytes ?? 0,
       };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(data) as CloudinaryUploadResponse;
-            if (response.secure_url) {
-              resolve(response);
-            } else {
-              reject(new Error('Upload failed: No URL in response'));
-            }
-          } catch (err) {
-            reject(new Error(`Failed to parse Cloudinary response: ${err}`));
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        reject(new Error(`Cloudinary upload error: ${err.message}`));
-      });
-
-      req.write(buffer);
-      req.end();
-    });
+    } catch (err: any) {
+      // Re-throw with useful context (but never log the secret)
+      if (err.message?.startsWith('Cloudinary')) throw err;
+      throw new Error(
+        `Cloudinary upload failed: ${err.message}. ` +
+        (rawText ? `Response: ${rawText.slice(0, 300)}` : '')
+      );
+    }
   }
 
   /**
-   * Delete an image from Cloudinary using public_id
+   * Delete an asset from Cloudinary by public_id using the signed Destroy API.
    */
   async deleteImage(publicId: string): Promise<boolean> {
-    if (!this.cloudName || !this.apiKey || !this.apiSecret) {
-      console.warn('Cloudinary credentials incomplete, cannot delete');
+    if (!this.isConfigured()) {
+      console.warn('[Cloudinary] Cannot delete — credentials not configured.');
       return false;
     }
 
-    return new Promise((resolve, reject) => {
-      const timestamp = Math.floor(Date.now() / 1000);
-      const params = new URLSearchParams({
-        public_id: publicId,
-        timestamp: timestamp.toString()
-      });
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const sigParams = { public_id: publicId, timestamp };
+    const signature = sign(sigParams, this.apiSecret);
 
-      // In production, use proper SHA-1 signing. For now, use unsigned.
-      const url = `https://api.cloudinary.com/v1_1/${this.cloudName}/image/destroy`;
-      const body = params.toString();
-
-      const options = {
-        hostname: 'api.cloudinary.com',
-        path: `/v1_1/${this.cloudName}/image/destroy`,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Content-Length': body.length
-        }
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => (data += chunk));
-        res.on('end', () => {
-          try {
-            const response = JSON.parse(data);
-            resolve(response.result === 'ok');
-          } catch (err) {
-            resolve(false);
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        console.error('Cloudinary delete error:', err);
-        resolve(false);
-      });
-
-      req.write(body);
-      req.end();
+    const params = new URLSearchParams({
+      public_id: publicId,
+      timestamp,
+      api_key: this.apiKey,
+      signature,
     });
+
+    const destroyUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/image/destroy`;
+
+    try {
+      const response = await fetch(destroyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+
+      const data = await response.json() as { result?: string; error?: { message: string } };
+
+      if (data.error) {
+        console.warn(`[Cloudinary] Delete warning for "${publicId}": ${data.error.message}`);
+        return false;
+      }
+
+      return data.result === 'ok';
+    } catch (err: any) {
+      console.error(`[Cloudinary] Delete error for "${publicId}":`, err.message);
+      return false;
+    }
   }
 
   /**
-   * Generate a transformation URL for an image
-   * Presets: gallery (1200px), thumbnail (400px), mobile (600px), hero (1920px)
+   * Insert a Cloudinary transformation into an existing URL.
+   * Works only with URLs that are already on res.cloudinary.com.
    */
-  generateTransformUrl(cloudinaryUrl: string, preset: 'gallery' | 'thumbnail' | 'mobile' | 'hero' = 'gallery'): string {
-    if (!cloudinaryUrl.includes('cloudinary.com')) {
-      return cloudinaryUrl;
-    }
+  generateTransformUrl(
+    cloudinaryUrl: string,
+    preset: 'gallery' | 'thumbnail' | 'mobile' | 'hero' = 'gallery'
+  ): string {
+    if (!cloudinaryUrl?.includes('cloudinary.com')) return cloudinaryUrl;
 
-    const transformations: Record<string, string> = {
+    const transforms: Record<string, string> = {
       gallery: 'w_1200,h_1200,c_fill,q_auto,f_auto',
       thumbnail: 'w_400,h_400,c_fill,q_auto,f_auto',
       mobile: 'w_600,h_600,c_fill,q_auto,f_auto',
-      hero: 'w_1920,h_1080,c_fill,q_auto,f_auto'
+      hero: 'w_1920,h_1080,c_fill,q_auto,f_auto',
     };
 
-    const transformation = transformations[preset];
-
-    // Insert transformation into the URL: https://res.cloudinary.com/cloud/image/upload/
-    // becomes: https://res.cloudinary.com/cloud/image/upload/w_1200,h_1200,c_fill,q_auto,f_auto/
     return cloudinaryUrl.replace(
       /\/image\/upload\//,
-      `/image/upload/${transformation}/`
+      `/image/upload/${transforms[preset]}/`
     );
   }
 
-  /**
-   * Generate srcset string for responsive images
-   * Returns: "url-1x 1x, url-2x 2x"
-   */
-  generateSrcset(cloudinaryUrl: string, width: number = 1200): string {
-    const url1x = this.generateTransformUrl(
-      cloudinaryUrl.replace('/upload/', `/upload/w_${width},q_auto,f_auto/`),
-      'gallery'
-    );
-
-    const url2x = this.generateTransformUrl(
-      cloudinaryUrl.replace('/upload/', `/upload/w_${width * 2},q_auto,f_auto/`),
-      'gallery'
-    );
-
-    return `${url1x} 1x, ${url2x} 2x`;
-  }
-
-  /**
-   * Verify Cloudinary is properly configured
-   */
-  isConfigured(): boolean {
-    return !!this.cloudName && !!this.apiKey && !!this.apiSecret;
-  }
-
-  /**
-   * Get the Cloudinary cloud name
-   */
-  getCloudName(): string {
-    return this.cloudName;
+  generateSrcset(cloudinaryUrl: string, width = 1200): string {
+    const make = (w: number) =>
+      cloudinaryUrl.replace('/upload/', `/upload/w_${w},q_auto,f_auto/`);
+    return `${make(width)} 1x, ${make(width * 2)} 2x`;
   }
 }
 
-// Singleton instance
-let instance: CloudinaryService | null = null;
+// ── Singleton ─────────────────────────────────────────────────────────────
+let _instance: CloudinaryService | null = null;
 
 export function getCloudinaryService(): CloudinaryService {
-  if (!instance) {
-    instance = new CloudinaryService();
-  }
-  return instance;
+  if (!_instance) _instance = new CloudinaryService();
+  return _instance;
 }
