@@ -1,104 +1,68 @@
+/**
+ * server.ts
+ *
+ * LOCAL DEVELOPMENT ONLY.
+ *
+ * In production, Vercel routes /api/* directly to api/index.ts and serves
+ * the Vite-built SPA from dist/. This file is never executed on Vercel.
+ *
+ * For local development: `npm run dev` runs this file via tsx, which:
+ *   - Starts an Express server with Vite middleware for HMR
+ *   - Serves the same API routes that Vercel will serve in production
+ *   - Connects to the same Supabase instance (reads from .env)
+ */
+
+// Load .env FIRST — before any module that reads process.env
+import { config as loadEnv } from 'dotenv';
+loadEnv();
+
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { getDb } from './server/db.js';
-import productsRouter from './server/routes/products.js';
-import ordersRouter from './server/routes/orders.js';
-import adminRouter from './server/routes/admin.js';
-import authRouter from './server/routes/auth.js';
-import imagesRouter from './server/routes/images.js';
-import bannersRouter from './server/routes/banners.js';
-import categoriesRouter from './server/routes/categories.js';
 
-async function startServer() {
+// Import the production API app — same logic used by Vercel.
+// We re-use it here so local dev is byte-for-byte identical to production.
+import apiApp from './api/index.js';
+
+async function startDevServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3031;
 
-  // Serve permanently uploaded product images from the persistent uploads directory.
-  // This must come BEFORE Vite middleware so static files are resolved first.
+  // ── Mount the API (Supabase + Cloudinary) ───────────────────────────────
+  // All /api/* requests go through the same handler that Vercel will call.
+  app.use(apiApp);
+
+  // ── Serve uploaded files from public/uploads (legacy local images only) ─
+  // NOTE: In production on Vercel, public/uploads does NOT persist.
+  // New uploads always go to Cloudinary. This only serves static
+  // catalog images that were committed to the repository.
   const uploadsPath = path.join(process.cwd(), 'public', 'uploads');
   app.use('/uploads', express.static(uploadsPath, {
-    maxAge: '30d',
-    immutable: false,
-    etag: true,
-    lastModified: true
+    maxAge: '1d',
+    fallthrough: true
   }));
 
-  // Body parser
-  // Product image uploads are stored as data URLs in SQLite so catalog changes
-  // remain available after the server restarts.
-  app.use(express.json({ limit: '12mb' }));
-  app.use(express.urlencoded({ extended: true }));
-
-  // Initialize and verify database on boot
-  try {
-    await getDb();
-    console.log('ROYALS SQLite Relational Database Initialized & Synced');
-  } catch (err) {
-    console.error('Database initialization warning:', err);
-  }
-
-  // Store information API endpoint
-  app.get('/api/store-info', (req, res) => {
-    res.json({
-      brandName: 'Lucknow Chikan Emporium',
-      tagline: 'Heritage Chikankari & Luxury Indian Ethnic Wear',
-      phone: '8000461784',
-      displayPhone: '+91 8000461784',
-      whatsappUrl: 'https://wa.me/918000461784',
-      address: {
-        road: '6, Lal Ji Tandon Marg (Khun Khun Ji Road)',
-        district: 'Opposite Munnu Lal Dharamshala, Near Domino\'s Pizza',
-        city: 'Lucknow',
-        state: 'Uttar Pradesh',
-        country: 'India',
-        pincode: '226003',
-        formatted: '6, Lal Ji Tandon Marg (Khun Khun Ji Road), Opposite Munnu Lal Dharamshala, Near Domino\'s Pizza, Chowk, Lucknow, Uttar Pradesh – 226003, India'
-      },
-      businessHours: {
-        weekdays: '10:00 AM - 8:30 PM IST',
-        sundays: '11:00 AM - 7:00 PM IST',
-        timezone: 'Asia/Kolkata (IST)'
-      },
-      gstin: '09AAACR8942K1Z3',
-      stateCode: '09 - Uttar Pradesh'
-    });
+  // ── Vite dev middleware (HMR, fast refresh) ─────────────────────────────
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa'
   });
+  app.use(vite.middlewares);
 
-  // Health check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'ROYALS Luxury Couture API', timestamp: new Date().toISOString() });
-  });
-
-  // API Routes
-  app.use('/api/products', productsRouter);
-  app.use('/api/orders', ordersRouter);
-  app.use('/api/admin', adminRouter);
-  app.use('/api/auth', authRouter);
-  app.use('/api/images', imagesRouter);
-  app.use('/api/banners', bannersRouter);
-  app.use('/api/categories', categoriesRouter);
-
-  // Vite middleware for development vs static build in production
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
+  // ── Start listening ──────────────────────────────────────────────────────
+  // app.listen() is intentionally ONLY called here in the dev server.
+  // It is NEVER called inside api/index.ts (the Vercel handler).
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`ROYALS Luxury Fashion server running on http://localhost:${PORT}`);
+    console.log('');
+    console.log('  ✦  ROYALS Dev Server');
+    console.log(`  ✦  Local:   http://localhost:${PORT}`);
+    console.log('  ✦  DB:      Supabase PostgreSQL');
+    console.log('  ✦  Storage: Cloudinary');
+    console.log('');
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start ROYALS server:', err);
+startDevServer().catch((err) => {
+  console.error('Failed to start ROYALS dev server:', err);
+  process.exit(1);
 });

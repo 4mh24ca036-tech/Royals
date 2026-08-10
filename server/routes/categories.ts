@@ -1,24 +1,23 @@
+/**
+ * server/routes/categories.ts
+ *
+ * Category management — Cloudinary is the ONLY image storage backend.
+ * No local filesystem writes. All category images go to Cloudinary;
+ * the resulting secure_url is stored in Supabase categories table.
+ */
+
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import sharp from 'sharp';
-import path from 'path';
-import fs from 'fs';
 import { getDb, persistDb } from '../db.js';
 import { authenticateAdmin } from '../auth.js';
+import { getCloudinaryService } from '../services/cloudinary.js';
 
 const router = Router();
 
-// ── Storage ──────────────────────────────────────────────────────────────
-const CATEGORIES_DIR = path.join(process.cwd(), 'public', 'uploads', 'categories');
-
-function ensureCategoriesDir() {
-  if (!fs.existsSync(CATEGORIES_DIR)) fs.mkdirSync(CATEGORIES_DIR, { recursive: true });
-}
-
-// Multer: memory storage so sharp can process before writing
+// ── Multer: memory storage only (no disk) ─────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024, files: 2 }, // 15 MB, max 2 files per request
+  limits: { fileSize: 15 * 1024 * 1024, files: 2 },
   fileFilter(_req, file, cb) {
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.mimetype)) {
@@ -28,90 +27,84 @@ const upload = multer({
   }
 });
 
-// ── DB helpers ────────────────────────────────────────────────────────────
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) stmt.bind(params);
-  const results: any[] = [];
-  while (stmt.step()) results.push(stmt.getAsObject());
-  stmt.free();
-  return results;
-}
-function queryOne(db: any, sql: string, params: any[] = []) {
-  const rows = queryAll(db, sql, params);
-  return rows[0] || null;
-}
-
-// ── Image helpers ─────────────────────────────────────────────────────────
-async function saveImage(
-  buffer: Buffer,
-  mimeType: string,
-  filenameBase: string,
-  width: number
-): Promise<string> {
-  ensureCategoriesDir();
-  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-  const filename = `${filenameBase}.${ext}`;
-  const destPath = path.join(CATEGORIES_DIR, filename);
-
-  const s = sharp(buffer).resize({ width, withoutEnlargement: true });
-  if (mimeType === 'image/png') {
-    await s.png({ quality: 85 }).toFile(destPath);
-  } else if (mimeType === 'image/webp') {
-    await s.webp({ quality: 85 }).toFile(destPath);
-  } else {
-    await s.jpeg({ quality: 87, progressive: true }).toFile(destPath);
-  }
-  return `/uploads/categories/${filename}`;
-}
-
-function deleteFile(publicUrl: string) {
-  if (!publicUrl || !publicUrl.startsWith('/uploads/categories/')) return;
-  const filePath = path.join(process.cwd(), 'public', publicUrl);
-  if (fs.existsSync(filePath)) {
-    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
-  }
-}
-
 function formatCategory(row: any) {
-  return {
-    ...row,
-    is_active: Boolean(row.is_active)
-  };
+  return { ...row };
 }
 
-// ── GET /api/categories  (PUBLIC — no auth required) ─────────────────────
+// ── Upload helper: image → Cloudinary ────────────────────────────────────
+async function uploadCategoryImage(
+  buffer: Buffer,
+  originalname: string,
+  folder: string
+): Promise<string> {
+  const cloudinary = getCloudinaryService();
+  if (!cloudinary.isConfigured()) {
+    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.');
+  }
+  const result = await cloudinary.uploadImage(buffer, originalname, folder);
+  return result.secure_url;
+}
+
+// ── Delete helper: remove old Cloudinary asset ────────────────────────────
+async function deleteCategoryImage(imageUrl: string): Promise<void> {
+  if (!imageUrl || !imageUrl.includes('cloudinary.com')) return;
+  const cloudinary = getCloudinaryService();
+  try {
+    const match = imageUrl.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+    if (match?.[1]) {
+      await cloudinary.deleteImage(match[1]);
+    }
+  } catch (err) {
+    console.warn('Cloudinary category delete warning (non-fatal):', err);
+  }
+}
+
+// ── GET /api/categories  (PUBLIC) ─────────────────────────────────────────
 // Returns only active categories ordered by display_order.
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const categories = queryAll(
-      db,
-      'SELECT * FROM categories WHERE is_active = 1 ORDER BY display_order ASC, created_at ASC'
-    );
-    res.json(categories.map(formatCategory));
+    const db = getDb();
+    const { data, error } = await db
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    res.json((data ?? []).map(formatCategory));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── GET /api/categories/all  (ADMIN — all categories including inactive) ─
+// ── GET /api/categories/all  (ADMIN) ─────────────────────────────────────
+// Returns all categories including inactive.
 router.get('/all', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const categories = queryAll(db, 'SELECT * FROM categories ORDER BY display_order ASC, created_at ASC');
-    res.json(categories.map(formatCategory));
+    const db = getDb();
+    const { data, error } = await db
+      .from('categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    res.json((data ?? []).map(formatCategory));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── GET /api/categories/:id  (PUBLIC — get single category) ───────────────
+// ── GET /api/categories/:id  (PUBLIC) ────────────────────────────────────
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const category = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [req.params.id]);
-    if (!category) {
+    const db = getDb();
+    const { data: category, error } = await db
+      .from('categories')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !category) {
       return res.status(404).json({ error: 'Category not found' });
     }
     res.json(formatCategory(category));
@@ -120,10 +113,9 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /api/categories  (ADMIN — create category with optional image upload) ──
+// ── POST /api/categories  (ADMIN) ────────────────────────────────────────
 // Accepts multipart/form-data.
-// Fields: name, slug, description, display_order, is_active
-// Files:  image (desktop), mobile_image (optional)
+// Files: image (desktop, required), mobile_image (optional)
 router.post(
   '/',
   authenticateAdmin,
@@ -133,11 +125,10 @@ router.post(
   ]),
   async (req: Request, res: Response) => {
     try {
-      const db = await getDb();
+      const db = getDb();
       const files = req.files as Record<string, Express.Multer.File[]> | undefined;
-
       const desktopFile = files?.['image']?.[0];
-      const mobileFile  = files?.['mobile_image']?.[0];
+      const mobileFile = files?.['mobile_image']?.[0];
 
       if (!desktopFile) {
         return res.status(400).json({ error: 'A desktop category image is required.' });
@@ -146,46 +137,53 @@ router.post(
       const id = `cat_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
       const now = new Date().toISOString();
 
-      // Determine next display order
-      const maxRow = queryOne(db, 'SELECT MAX(display_order) as m FROM categories');
-      const displayOrder = ((maxRow?.m as number) ?? -1) + 1;
+      // Get next display_order
+      const { data: maxRow } = await db
+        .from('categories')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1);
+      const displayOrder = ((maxRow?.[0]?.display_order as number) ?? -1) + 1;
 
-      // Save desktop image (max 1920px wide)
-      const imageUrl = await saveImage(
+      // Upload desktop image to Cloudinary
+      const imageUrl = await uploadCategoryImage(
         desktopFile.buffer,
-        desktopFile.mimetype,
-        `${id}_desktop`,
-        1920
+        desktopFile.originalname || 'category-desktop',
+        `royals/categories/${id}`
       );
 
-      // Save mobile image (max 768px wide) if provided
+      // Upload mobile image if provided
       let mobileImageUrl = '';
       if (mobileFile) {
-        mobileImageUrl = await saveImage(
+        mobileImageUrl = await uploadCategoryImage(
           mobileFile.buffer,
-          mobileFile.mimetype,
-          `${id}_mobile`,
-          768
+          mobileFile.originalname || 'category-mobile',
+          `royals/categories/${id}`
         );
       }
 
-      const {
-        name = '',
-        slug = '',
-        description = '',
-        display_order = displayOrder.toString(),
-        is_active = '1'
-      } = req.body as Record<string, string>;
+      const body = req.body as Record<string, string>;
+      const isActive = body.is_active === undefined || body.is_active === '1' || body.is_active === 'true';
+      const explicitOrder = body.display_order !== undefined
+        ? parseInt(body.display_order, 10)
+        : displayOrder;
 
-      db.run(
-        `INSERT INTO categories
-           (id, name, slug, description, image_url, mobile_image_url, is_active, created_at, updated_at, display_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, name, slug, description, imageUrl, mobileImageUrl, is_active === '1' || is_active === 'true' ? 1 : 0, now, now, parseInt(display_order, 10)]
-      );
-      persistDb();
+      const { error: insertErr } = await db.from('categories').insert({
+        id,
+        name: body.name ?? '',
+        slug: body.slug ?? id,
+        description: body.description ?? '',
+        image_url: imageUrl,
+        mobile_image_url: mobileImageUrl,
+        is_active: isActive,
+        display_order: explicitOrder,
+        created_at: now,
+        updated_at: now
+      });
 
-      const category = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [id]);
+      if (insertErr) throw insertErr;
+
+      const { data: category } = await db.from('categories').select('*').eq('id', id).single();
       res.status(201).json({ success: true, category: formatCategory(category) });
     } catch (err: any) {
       console.error('Category create error:', err);
@@ -194,7 +192,8 @@ router.post(
   }
 );
 
-// ── PUT /api/categories/:id  (ADMIN — update metadata + optionally replace images) ──
+// ── PUT /api/categories/:id  (ADMIN) ─────────────────────────────────────
+// Update metadata + optionally replace images.
 router.put(
   '/:id',
   authenticateAdmin,
@@ -204,47 +203,68 @@ router.put(
   ]),
   async (req: Request, res: Response) => {
     try {
-      const db = await getDb();
+      const db = getDb();
       const { id } = req.params;
-      const existing = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [id]);
-      if (!existing) return res.status(404).json({ error: 'Category not found' });
+
+      const { data: existing, error: fetchErr } = await db
+        .from('categories')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchErr || !existing) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
 
       const files = req.files as Record<string, Express.Multer.File[]> | undefined;
       const desktopFile = files?.['image']?.[0];
-      const mobileFile  = files?.['mobile_image']?.[0];
-
+      const mobileFile = files?.['mobile_image']?.[0];
       const now = new Date().toISOString();
+
       let imageUrl: string = existing.image_url as string;
       let mobileImageUrl: string = (existing.mobile_image_url as string) || '';
 
-      // Replace desktop image if new one provided
       if (desktopFile) {
-        deleteFile(existing.image_url as string);
-        imageUrl = await saveImage(desktopFile.buffer, desktopFile.mimetype, `${id}_desktop_${Date.now()}`, 1920);
+        await deleteCategoryImage(existing.image_url as string);
+        imageUrl = await uploadCategoryImage(
+          desktopFile.buffer,
+          desktopFile.originalname || 'category-desktop',
+          `royals/categories/${id}`
+        );
       }
 
-      // Replace / add mobile image if provided
       if (mobileFile) {
-        if (mobileImageUrl) deleteFile(mobileImageUrl);
-        mobileImageUrl = await saveImage(mobileFile.buffer, mobileFile.mimetype, `${id}_mobile_${Date.now()}`, 768);
+        if (mobileImageUrl) await deleteCategoryImage(mobileImageUrl);
+        mobileImageUrl = await uploadCategoryImage(
+          mobileFile.buffer,
+          mobileFile.originalname || 'category-mobile',
+          `royals/categories/${id}`
+        );
       }
 
       const body = req.body as Record<string, string>;
-      const name         = body.name         !== undefined ? body.name         : existing.name;
-      const slug         = body.slug         !== undefined ? body.slug         : existing.slug;
-      const description  = body.description  !== undefined ? body.description  : existing.description;
-      const displayOrder = body.display_order !== undefined ? parseInt(body.display_order, 10) : existing.display_order;
-      const isActive     = body.is_active    !== undefined ? (body.is_active === '1' || body.is_active === 'true' ? 1 : 0) : existing.is_active;
+      const updates: Record<string, any> = {
+        image_url: imageUrl,
+        mobile_image_url: mobileImageUrl,
+        updated_at: now
+      };
 
-      db.run(
-        `UPDATE categories
-         SET name = ?, slug = ?, description = ?, image_url = ?, mobile_image_url = ?, is_active = ?, updated_at = ?, display_order = ?
-         WHERE id = ?`,
-        [name, slug, description, imageUrl, mobileImageUrl, isActive, now, displayOrder, id]
-      );
-      persistDb();
+      if (body.name !== undefined) updates.name = body.name;
+      if (body.slug !== undefined) updates.slug = body.slug;
+      if (body.description !== undefined) updates.description = body.description;
+      if (body.display_order !== undefined) updates.display_order = parseInt(body.display_order, 10);
+      if (body.is_active !== undefined) {
+        updates.is_active = body.is_active === '1' || body.is_active === 'true';
+      }
 
-      const category = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [id]);
+      const { error: updateErr } = await db
+        .from('categories')
+        .update(updates)
+        .eq('id', id);
+
+      if (updateErr) throw updateErr;
+
+      const { data: category } = await db.from('categories').select('*').eq('id', id).single();
       res.json({ success: true, category: formatCategory(category) });
     } catch (err: any) {
       console.error('Category update error:', err);
@@ -253,46 +273,61 @@ router.put(
   }
 );
 
-// ── PATCH /api/categories/:id/toggle  (ADMIN — toggle active status) ────────
+// ── PATCH /api/categories/:id/toggle  (ADMIN) ───────────────────────────
 router.patch('/:id/toggle', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
-    const existing = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [id]);
-    if (!existing) return res.status(404).json({ error: 'Category not found' });
 
-    const newStatus = existing.is_active ? 0 : 1;
-    const now = new Date().toISOString();
+    const { data: existing, error: fetchErr } = await db
+      .from('categories')
+      .select('is_active')
+      .eq('id', id)
+      .single();
 
-    db.run(
-      'UPDATE categories SET is_active = ?, updated_at = ? WHERE id = ?',
-      [newStatus, now, id]
-    );
-    persistDb();
+    if (fetchErr || !existing) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
 
-    const category = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [id]);
+    const newStatus = !existing.is_active;
+    const { error: updateErr } = await db
+      .from('categories')
+      .update({ is_active: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (updateErr) throw updateErr;
+
+    const { data: category } = await db.from('categories').select('*').eq('id', id).single();
     res.json({ success: true, category: formatCategory(category) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── DELETE /api/categories/:id  (ADMIN — delete category) ───────────────────
+// ── DELETE /api/categories/:id  (ADMIN) ──────────────────────────────────
 router.delete('/:id', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
-    const existing = queryOne(db, 'SELECT * FROM categories WHERE id = ?', [id]);
-    if (!existing) return res.status(404).json({ error: 'Category not found' });
 
-    // Delete image files
-    deleteFile(existing.image_url as string);
-    if (existing.mobile_image_url) {
-      deleteFile(existing.mobile_image_url as string);
+    const { data: existing, error: fetchErr } = await db
+      .from('categories')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !existing) {
+      return res.status(404).json({ error: 'Category not found' });
     }
 
-    db.run('DELETE FROM categories WHERE id = ?', [id]);
-    persistDb();
+    // Delete Cloudinary assets
+    await deleteCategoryImage(existing.image_url as string);
+    if (existing.mobile_image_url) {
+      await deleteCategoryImage(existing.mobile_image_url as string);
+    }
+
+    const { error: delErr } = await db.from('categories').delete().eq('id', id);
+    if (delErr) throw delErr;
 
     res.json({ success: true, message: 'Category deleted successfully' });
   } catch (err: any) {
@@ -300,26 +335,32 @@ router.delete('/:id', authenticateAdmin, async (req: Request, res: Response) => 
   }
 });
 
-// ── PATCH /api/categories/reorder  (ADMIN — reorder categories) ─────────────
+// ── PATCH /api/categories/reorder  (ADMIN) ───────────────────────────────
+// Body: { order: ["id1", "id2", ...] }
 router.patch('/reorder', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { order } = req.body as { order: string[] };
+
     if (!Array.isArray(order)) {
-      return res.status(400).json({ error: 'Order must be an array of category IDs' });
+      return res.status(400).json({ error: 'order must be an array of category IDs' });
     }
 
     const now = new Date().toISOString();
-    order.forEach((categoryId, index) => {
-      db.run(
-        'UPDATE categories SET display_order = ?, updated_at = ? WHERE id = ?',
-        [index, now, categoryId]
-      );
-    });
-    persistDb();
 
-    const categories = queryAll(db, 'SELECT * FROM categories ORDER BY display_order ASC');
-    res.json({ success: true, categories: categories.map(formatCategory) });
+    for (let i = 0; i < order.length; i++) {
+      await db
+        .from('categories')
+        .update({ display_order: i, updated_at: now })
+        .eq('id', order[i]);
+    }
+
+    const { data: categories } = await db
+      .from('categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    res.json({ success: true, categories: (categories ?? []).map(formatCategory) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

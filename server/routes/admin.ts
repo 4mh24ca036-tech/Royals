@@ -1,3 +1,10 @@
+/**
+ * server/routes/admin.ts
+ *
+ * Admin panel API — all data from Supabase PostgreSQL.
+ * No SQLite / sql.js dependency.
+ */
+
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, persistDb } from '../db.js';
@@ -5,957 +12,592 @@ import { generateAdminToken, authenticateAdmin } from '../auth.js';
 
 const router = Router();
 
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  const results = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return results;
-}
-
 function formatDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = monthNames[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
+  return `${day} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function formatTime(date: Date): string {
   let hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
+  hours = hours % 12 || 12;
   return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+}
+
+function buildSlug(title: string): string {
+  return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return value.filter((e): e is string => typeof e === 'string').map((e) => e.trim()).filter(Boolean);
 }
 
-function buildSlug(title: string) {
-  return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+async function syncInventory(db: any, productId: string, sizes: string[], stock: number, timestamp: string) {
+  await db.from('inventory').delete().eq('product_id', productId);
+  for (let i = 0; i < sizes.length; i++) {
+    await db.from('inventory').insert({
+      id: `inv_${productId}_${i}`,
+      product_id: productId,
+      sku: `RYL-${productId.slice(-6).toUpperCase()}-${i + 1}`,
+      size: sizes[i],
+      stock_quantity: stock,
+      low_stock_threshold: 3,
+      last_restocked_at: timestamp
+    });
+  }
 }
 
-function syncInventory(db: any, productId: string, sizes: string[], stock: number, timestamp: string) {
-  db.run('DELETE FROM inventory WHERE product_id = ?', [productId]);
-  sizes.forEach((size, index) => {
-    db.run(
-      `INSERT INTO inventory (id, product_id, sku, size, stock_quantity, low_stock_threshold, last_restocked_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?);`,
-      [`inv_${productId}_${index}`, productId, `RYL-${productId.slice(-6).toUpperCase()}-${index + 1}`, size, stock, 3, timestamp]
-    );
-  });
+async function syncImagesJson(db: any, productId: string) {
+  const { data } = await db
+    .from('product_images')
+    .select('image_url')
+    .eq('product_id', productId)
+    .order('display_order', { ascending: true });
+  const urls = (data ?? []).map((r: any) => r.image_url);
+  await db.from('products')
+    .update({ images_json: JSON.stringify(urls), updated_at: new Date().toISOString() })
+    .eq('id', productId);
 }
 
-// ADMIN LOGIN
+// ── ADMIN LOGIN ───────────────────────────────────────────────────────────
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { username, password } = req.body;
-
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and Password are required' });
     }
-
-    const admins = queryAll(
-      db,
-      'SELECT * FROM admin_users WHERE username = ? OR email = ? LIMIT 1',
-      [username, username]
-    );
-
-    let admin = admins.length > 0 ? admins[0] : null;
-
-    // Fallback: If no admin in DB, create default admin user
+    const { data: admins } = await db
+      .from('admin_users')
+      .select('*')
+      .or(`username.eq.${username},email.eq.${username}`)
+      .limit(1);
+    let admin = admins?.[0] ?? null;
     if (!admin && username === 'admin') {
       const salt = bcrypt.genSaltSync(10);
       const hash = bcrypt.hashSync('Royals@2026', salt);
       const now = new Date().toISOString();
-      db.run(
-        `INSERT INTO admin_users (id, username, email, name, password_hash, role, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?);`,
-        ['adm_1', 'admin', 'admin@royals.com', 'Atelier Director', hash, 'super_admin', now]
-      );
-      persistDb();
+      await db.from('admin_users').insert({
+        id: 'adm_1', username: 'admin', email: 'admin@royals.com',
+        name: 'Atelier Director', password_hash: hash, role: 'super_admin', created_at: now
+      });
       admin = {
-        id: 'adm_1',
-        username: 'admin',
-        email: 'admin@royals.com',
-        name: 'Atelier Director',
-        password_hash: hash,
-        role: 'super_admin'
+        id: 'adm_1', username: 'admin', email: 'admin@royals.com',
+        name: 'Atelier Director', password_hash: hash, role: 'super_admin'
       };
     }
-
-    if (!admin) {
-      return res.status(401).json({ error: 'Invalid admin credentials' });
-    }
-
+    if (!admin) return res.status(401).json({ error: 'Invalid admin credentials' });
     let passwordMatch = false;
-    try {
-      passwordMatch = bcrypt.compareSync(password, admin.password_hash);
-    } catch {
-      passwordMatch = false;
-    }
-
-    // Direct match check for temporary credentials
+    try { passwordMatch = bcrypt.compareSync(password, admin.password_hash); } catch { }
     if (!passwordMatch && (password === 'Royals@2026' || password === 'RoyalsAdmin@2026')) {
       passwordMatch = true;
-      // Re-hash to standard
       const salt = bcrypt.genSaltSync(10);
       const newHash = bcrypt.hashSync('Royals@2026', salt);
-      db.run('UPDATE admin_users SET password_hash = ? WHERE id = ?', [newHash, admin.id]);
+      await db.from('admin_users').update({ password_hash: newHash }).eq('id', admin.id);
     }
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid admin credentials. Check username and password.' });
-    }
-
+    if (!passwordMatch) return res.status(401).json({ error: 'Invalid admin credentials.' });
     const now = new Date().toISOString();
-    db.run('UPDATE admin_users SET last_login = ? WHERE id = ?', [now, admin.id]);
-    persistDb();
-
+    await db.from('admin_users').update({ last_login: now }).eq('id', admin.id);
     const token = generateAdminToken({
-      id: admin.id,
-      username: admin.username,
-      email: admin.email,
-      name: admin.name,
-      role: admin.role
+      id: admin.id, username: admin.username, email: admin.email,
+      name: admin.name, role: admin.role
     });
-
     res.json({
-      token,
-      admin: {
-        id: admin.id,
-        username: admin.username,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        last_login: now
+      token, admin: {
+        id: admin.id, username: admin.username, email: admin.email,
+        name: admin.name, role: admin.role, last_login: now
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// GET ADMIN DASHBOARD STATS
-router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
+// ── ADMIN STATS ───────────────────────────────────────────────────────────
+router.get('/stats', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-
-    const orders = queryAll(db, 'SELECT * FROM orders ORDER BY created_at DESC');
+    const db = getDb();
+    const [ordersRes, usersRes, productsRes, lowStockRes] = await Promise.all([
+      db.from('orders').select('*').order('created_at', { ascending: false }),
+      db.from('users').select('id', { count: 'exact', head: true }),
+      db.from('products').select('id', { count: 'exact', head: true }),
+      db.from('products').select('id', { count: 'exact', head: true }).lte('stock', 5)
+    ]);
+    const orders = ordersRes.data ?? [];
     const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((acc: number, o: any) => o.payment_status === 'PAID' || o.payment_status === 'SUCCESS' ? acc + Number(o.grand_total) : acc, 0);
+    const totalRevenue = orders.reduce((a: number, o: any) =>
+      (o.payment_status === 'PAID' || o.payment_status === 'SUCCESS') ? a + Number(o.grand_total) : a, 0);
     const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
-
-    const customersCount = queryAll(db, 'SELECT COUNT(*) as count FROM users')[0]?.count || 0;
-    const productsCount = queryAll(db, 'SELECT COUNT(*) as count FROM products')[0]?.count || 0;
-    const lowStockCount = queryAll(db, 'SELECT COUNT(*) as count FROM products WHERE stock <= 5')[0]?.count || 0;
-
-    // Canonical 8 Status distribution
     const statusCounts: Record<string, number> = {
-      'Order Placed': 0,
-      'Awaiting Payment Verification': 0,
-      'Payment Confirmed': 0,
-      'Preparing Order': 0,
-      'Packed': 0,
-      'Shipped': 0,
-      'Out For Delivery': 0,
-      'Delivered': 0,
-      'Cancelled': 0
+      'Order Placed': 0, 'Awaiting Payment Verification': 0, 'Payment Confirmed': 0,
+      'Preparing Order': 0, 'Packed': 0, 'Shipped': 0, 'Out For Delivery': 0,
+      'Delivered': 0, 'Cancelled': 0
     };
-
     orders.forEach((o: any) => {
       let st = o.order_status;
       if (st === 'Preparing') st = 'Preparing Order';
       if (st === 'Out for Delivery') st = 'Out For Delivery';
-      if (statusCounts[st] !== undefined) {
-        statusCounts[st]++;
-      }
+      if (statusCounts[st] !== undefined) statusCounts[st]++;
     });
-
-    // Recent orders with customer and items
-    const recentOrders = orders.slice(0, 10).map((ord: any) => {
-      const items = queryAll(db, 'SELECT * FROM order_items WHERE order_id = ?', [ord.id]);
-      return {
-        ...ord,
-        items,
-        shipping_address: JSON.parse(ord.shipping_address_json)
-      };
-    });
-
+    const recentOrders = await Promise.all(orders.slice(0, 10).map(async (ord: any) => {
+      const { data: items } = await db.from('order_items').select('*').eq('order_id', ord.id);
+      return { ...ord, items: items ?? [], shipping_address: JSON.parse(ord.shipping_address_json) };
+    }));
     res.json({
-      totalRevenue,
-      totalOrders,
-      avgOrderValue,
-      customersCount,
-      totalCustomers: customersCount,
-      productsCount,
-      totalProducts: productsCount,
-      lowStockCount,
-      statusCounts,
-      recentOrders
+      totalRevenue, totalOrders, avgOrderValue,
+      customersCount: usersRes.count ?? 0, totalCustomers: usersRes.count ?? 0,
+      productsCount: productsRes.count ?? 0, totalProducts: productsRes.count ?? 0,
+      lowStockCount: lowStockRes.count ?? 0, statusCounts, recentOrders
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// GET ALL ORDERS FOR ADMIN
+// ── GET ALL ORDERS ────────────────────────────────────────────────────────
 router.get('/orders', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { status, search } = req.query;
-
-    let sql = 'SELECT * FROM orders WHERE 1=1';
-    const params: any[] = [];
-
+    let query = db.from('orders').select('*');
     if (status && status !== 'all') {
       if (status === 'Preparing Order') {
-        sql += ' AND (order_status = ? OR order_status = ?)';
-        params.push('Preparing Order', 'Preparing');
+        query = query.or('order_status.eq.Preparing Order,order_status.eq.Preparing');
       } else if (status === 'Out For Delivery') {
-        sql += ' AND (order_status = ? OR order_status = ?)';
-        params.push('Out For Delivery', 'Out for Delivery');
+        query = query.or('order_status.eq.Out For Delivery,order_status.eq.Out for Delivery');
       } else {
-        sql += ' AND order_status = ?';
-        params.push(status);
+        query = query.eq('order_status', status as string);
       }
     }
-
     if (search) {
-      sql += ' AND (order_number LIKE ? OR tracking_id LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ? OR customer_email LIKE ?)';
-      const term = `%${search}%`;
-      params.push(term, term, term, term, term);
+      const s = search as string;
+      query = query.or(`order_number.ilike.%${s}%,tracking_id.ilike.%${s}%,customer_name.ilike.%${s}%,customer_phone.ilike.%${s}%,customer_email.ilike.%${s}%`);
     }
-
-    sql += ' ORDER BY created_at DESC';
-
-    const orders = queryAll(db, sql, params);
-
-    const enriched = orders.map((ord: any) => {
-      const items = queryAll(db, 'SELECT * FROM order_items WHERE order_id = ?', [ord.id]);
-      const payments = queryAll(db, 'SELECT * FROM payments WHERE order_id = ?', [ord.id]);
-      const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [ord.id]);
+    query = query.order('created_at', { ascending: false });
+    const { data: orders, error } = await query;
+    if (error) throw error;
+    const enriched = await Promise.all((orders ?? []).map(async (ord: any) => {
+      const [itemsR, paymentsR, historyR] = await Promise.all([
+        db.from('order_items').select('*').eq('order_id', ord.id),
+        db.from('payments').select('*').eq('order_id', ord.id),
+        db.from('order_status_history').select('*').eq('order_id', ord.id).order('created_at', { ascending: true })
+      ]);
       return {
-        ...ord,
-        shipping_address: JSON.parse(ord.shipping_address_json),
-        items,
-        payment: payments[0] || null,
-        status_history: history
+        ...ord, shipping_address: JSON.parse(ord.shipping_address_json),
+        items: itemsR.data ?? [], payment: paymentsR.data?.[0] ?? null,
+        status_history: historyR.data ?? []
       };
-    });
-
+    }));
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// UPDATE ORDER STATUS (Stores exact server date & time, never overwrites history, updates timeline & creates customer in-app notification)
+// ── UPDATE ORDER STATUS ───────────────────────────────────────────────────
 router.patch('/orders/:id/status', authenticateAdmin, async (req: any, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
     let { status, notes, courierName, trackingId, estimatedDeliveryDate } = req.body;
-
-    // Normalize status names
     if (status === 'Preparing') status = 'Preparing Order';
     if (status === 'Out for Delivery') status = 'Out For Delivery';
-
-    const validStatuses = [
-      'Order Placed',
-      'Awaiting Payment Verification',
-      'Payment Confirmed',
-      'Preparing Order',
-      'Packed',
-      'Shipped',
-      'Out For Delivery',
-      'Delivered',
-      'Cancelled'
-    ];
-
+    const validStatuses = ['Order Placed', 'Awaiting Payment Verification', 'Payment Confirmed',
+      'Preparing Order', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered', 'Cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
-
-    const orderRows = queryAll(db, 'SELECT * FROM orders WHERE id = ? OR order_number = ? LIMIT 1', [id, id]);
-    if (orderRows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+    let order: any = null;
+    for (const field of ['id', 'order_number']) {
+      const { data } = await db.from('orders').select('*').eq(field, id).maybeSingle();
+      if (data) { order = data; break; }
     }
-
-    const order = orderRows[0];
+    if (!order) return res.status(404).json({ error: 'Order not found' });
     const now = new Date();
     const serverDate = formatDate(now);
     const serverTime = formatTime(now);
     const adminName = req.admin?.name || 'Lucknow Atelier Operations';
-
-    // Update order status in orders table
-    let updateSql = 'UPDATE orders SET order_status = ?, updated_at = ?';
-    const updateParams: any[] = [status, now.toISOString()];
-
-    // Keep the order and its payment record synchronized as fulfillment progresses.
+    const updates: Record<string, any> = { order_status: status, updated_at: now.toISOString() };
     if (status === 'Payment Confirmed' || status === 'Preparing Order') {
-      updateSql += ', payment_status = ?';
-      updateParams.push('PAID');
-      db.run('UPDATE payments SET status = ? WHERE order_id = ?', ['PAID', order.id]);
+      updates.payment_status = 'PAID';
+      await db.from('payments').update({ status: 'PAID' }).eq('order_id', order.id);
     } else if (status === 'Cancelled') {
-      updateSql += ', payment_status = ?';
-      updateParams.push('CANCELLED');
-      db.run('UPDATE payments SET status = ? WHERE order_id = ?', ['CANCELLED', order.id]);
+      updates.payment_status = 'CANCELLED';
+      await db.from('payments').update({ status: 'CANCELLED' }).eq('order_id', order.id);
     }
-
-    if (courierName) {
-      updateSql += ', courier_name = ?';
-      updateParams.push(courierName);
-    }
-    if (trackingId) {
-      updateSql += ', tracking_id = ?';
-      updateParams.push(trackingId);
-    }
-    if (estimatedDeliveryDate) {
-      updateSql += ', estimated_delivery_date = ?';
-      updateParams.push(estimatedDeliveryDate);
-    }
-
-    updateSql += ' WHERE id = ?';
-    updateParams.push(order.id);
-
-    db.run(updateSql, updateParams);
-
-    // Insert into order_status_history (NEVER OVERWRITES PREVIOUS HISTORY)
-    const historyId = `hist_${order.id}_${Date.now()}`;
+    if (courierName) updates.courier_name = courierName;
+    if (trackingId) updates.tracking_id = trackingId;
+    if (estimatedDeliveryDate) updates.estimated_delivery_date = estimatedDeliveryDate;
+    await db.from('orders').update(updates).eq('id', order.id);
     const defaultNotes: Record<string, string> = {
       'Order Placed': 'Order verified and queued in Lucknow Atelier.',
       'Payment Confirmed': 'Payment verified and credited to Lucknow Atelier accounts.',
       'Preparing Order': 'Artisan hand-finishing, custom sizing, and heirloom packaging initiated.',
       'Packed': 'Inspected by master craftsmen and sealed in tamper-proof royal packaging.',
-      'Shipped': `Dispatched via ${courierName || order.courier_name || 'Blue Dart Apex Luxury'} (Tracking ID: ${trackingId || order.tracking_id}).`,
-      'Out For Delivery': 'Consignment is out for verified doorstep delivery with courier executive.',
-      'Delivered': 'Consignment delivered successfully to patron with signature confirmation.',
+      'Shipped': `Dispatched via ${courierName || order.courier_name || 'Blue Dart Apex Luxury'}.`,
+      'Out For Delivery': 'Consignment is out for verified doorstep delivery.',
+      'Delivered': 'Consignment delivered successfully with signature confirmation.',
       'Cancelled': 'Order cancelled per customer request or operational verification.'
     };
-
     const finalNotes = notes || defaultNotes[status] || `Order status updated to ${status}`;
-
-    db.run(
-      `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [historyId, order.id, status, finalNotes, adminName, serverDate, serverTime, now.toISOString()]
-    );
-
-    // Create In-App Notification for customer per prompt specifications
+    await db.from('order_status_history').insert({
+      id: `hist_${order.id}_${Date.now()}`, order_id: order.id, status: status,
+      notes: finalNotes, updated_by: adminName, date_str: serverDate, time_str: serverTime,
+      created_at: now.toISOString()
+    });
     const notifMessages: Record<string, string> = {
       'Preparing Order': '📦 Your order is being prepared.',
       'Packed': '📦 Your order has been packed.',
-      'Shipped': `🚚 Your order has been shipped. (Tracking ID: ${trackingId || order.tracking_id})`,
+      'Shipped': `🚚 Your order has been shipped.`,
       'Out For Delivery': '🚛 Your order is out for delivery.',
       'Delivered': '✅ Your order has been delivered.',
       'Cancelled': '❌ Your order has been cancelled.',
-      'Payment Confirmed': '💳 Payment confirmed for your royal order.',
-      'Order Placed': '✨ Your order has been placed successfully.'
+      'Payment Confirmed': '💳 Payment confirmed for your royal order.'
     };
-
-    const notifTitles: Record<string, string> = {
-      'Preparing Order': 'Order Preparation Underway',
-      'Packed': 'Order Packed & Inspected',
-      'Shipped': 'Order Dispatched',
-      'Out For Delivery': 'Out For Delivery Today',
-      'Delivered': 'Order Delivered',
-      'Cancelled': 'Order Cancelled',
-      'Payment Confirmed': 'Payment Confirmed',
-      'Order Placed': 'Order Placed'
-    };
-
-    const notifId = `notif_${order.id}_${Date.now()}`;
-    const notificationMessage = notifMessages[status] || `Order #${order.order_number} status updated to ${status}`;
-
-    db.run(
-      `INSERT INTO notifications (id, user_id, order_id, title, message, type, is_read, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        notifId,
-        order.user_id,
-        order.id,
-        notifTitles[status] || `Status: ${status}`,
-        `${notificationMessage} (Order #${order.order_number})`,
-        status === 'Delivered' ? 'delivery_success' : 'order_update',
-        0,
-        now.toISOString()
-      ]
-    );
-
-    persistDb();
-
-    // Return updated order
-    const updatedOrder = queryAll(db, 'SELECT * FROM orders WHERE id = ?', [order.id])[0];
-    const items = queryAll(db, 'SELECT * FROM order_items WHERE order_id = ?', [order.id]);
-    const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [order.id]);
-
+    if (notifMessages[status] && order.user_id) {
+      await db.from('notifications').insert({
+        id: `notif_${order.id}_${Date.now()}`, user_id: order.user_id, order_id: order.id,
+        title: status, message: `${notifMessages[status]} (Order #${order.order_number})`,
+        type: status === 'Delivered' ? 'delivery_success' : 'order_update',
+        is_read: false, created_at: now.toISOString()
+      });
+    }
+    const [updatedOrder, items, history] = await Promise.all([
+      db.from('orders').select('*').eq('id', order.id).single(),
+      db.from('order_items').select('*').eq('order_id', order.id),
+      db.from('order_status_history').select('*').eq('order_id', order.id).order('created_at', { ascending: true })
+    ]);
     res.json({
-      success: true,
-      message: `Order status successfully updated to ${status}`,
-      serverTimestamp: {
-        date: serverDate,
-        time: serverTime,
-        iso: now.toISOString()
-      },
+      success: true, message: `Order status successfully updated to ${status}`,
+      serverTimestamp: { date: serverDate, time: serverTime, iso: now.toISOString() },
       order: {
-        ...updatedOrder,
-        shipping_address: JSON.parse(updatedOrder.shipping_address_json),
-        items,
-        status_history: history
+        ...updatedOrder.data, shipping_address: JSON.parse(updatedOrder.data!.shipping_address_json),
+        items: items.data ?? [], status_history: history.data ?? []
       }
     });
-  } catch (err: any) {
-    console.error('Error updating order status:', err);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// UPDATE ESTIMATED DELIVERY DATE (Customer immediately sees new date & receives notification)
+// ── UPDATE DELIVERY DATE ─────────────────────────────────────────────────
 router.patch('/orders/:id/delivery-date', authenticateAdmin, async (req: any, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
     const { estimatedDeliveryDate, notes } = req.body;
-
     if (!estimatedDeliveryDate) {
-      return res.status(400).json({ error: 'Estimated delivery date is required' });
+      return res.status(400).json({ error: 'estimatedDeliveryDate is required' });
     }
-
-    const orderRows = queryAll(db, 'SELECT * FROM orders WHERE id = ? OR order_number = ? LIMIT 1', [id, id]);
-    if (orderRows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+    let order: any = null;
+    for (const field of ['id', 'order_number']) {
+      const { data } = await db.from('orders').select('*').eq(field, id).maybeSingle();
+      if (data) { order = data; break; }
     }
-
-    const order = orderRows[0];
+    if (!order) return res.status(404).json({ error: 'Order not found' });
     const now = new Date();
-    const serverDate = formatDate(now);
-    const serverTime = formatTime(now);
-    const adminName = req.admin?.name || 'Lucknow Atelier Operations';
-
-    // Update in orders table
-    db.run(
-      'UPDATE orders SET estimated_delivery_date = ?, updated_at = ? WHERE id = ?',
-      [estimatedDeliveryDate, now.toISOString(), order.id]
-    );
-
-    // Create history entry
-    const historyId = `hist_${order.id}_${Date.now()}`;
-    const logNote = notes || `Estimated delivery date updated to ${estimatedDeliveryDate}`;
-    db.run(
-      `INSERT INTO order_status_history (id, order_id, status, notes, updated_by, date_str, time_str, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [historyId, order.id, order.order_status, logNote, adminName, serverDate, serverTime, now.toISOString()]
-    );
-
-    // Create in-app customer notification
-    const notifId = `notif_${order.id}_${Date.now()}`;
-    db.run(
-      `INSERT INTO notifications (id, user_id, order_id, title, message, type, is_read, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        notifId,
-        order.user_id,
-        order.id,
-        'Estimated Delivery Date Updated',
-        `📅 Your order #${order.order_number} estimated delivery date has been updated to ${estimatedDeliveryDate}.`,
-        'delivery_date_updated',
-        0,
-        now.toISOString()
-      ]
-    );
-
-    persistDb();
-
-    const updatedOrder = queryAll(db, 'SELECT * FROM orders WHERE id = ?', [order.id])[0];
-    const items = queryAll(db, 'SELECT * FROM order_items WHERE order_id = ?', [order.id]);
-    const history = queryAll(db, 'SELECT * FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC', [order.id]);
-
-    res.json({
-      success: true,
-      message: `Estimated delivery date updated to ${estimatedDeliveryDate}`,
-      order: {
-        ...updatedOrder,
-        shipping_address: JSON.parse(updatedOrder.shipping_address_json),
-        items,
-        status_history: history
-      }
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    await db.from('orders').update({
+      estimated_delivery_date: estimatedDeliveryDate,
+      updated_at: now.toISOString()
+    }).eq('id', order.id);
+    if (notes) {
+      await db.from('order_status_history').insert({
+        id: `hist_${order.id}_del_${Date.now()}`, order_id: order.id,
+        status: order.order_status,
+        notes: notes || `Estimated delivery date updated to ${estimatedDeliveryDate}`,
+        updated_by: req.admin?.name || 'Admin',
+        date_str: formatDate(now), time_str: formatTime(now),
+        created_at: now.toISOString()
+      });
+    }
+    const { data: updatedOrder } = await db.from('orders').select('*').eq('id', order.id).single();
+    res.json({ success: true, message: 'Delivery date updated', order: updatedOrder });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// GET ANALYTICS
-router.get('/analytics', authenticateAdmin, async (req: Request, res: Response) => {
+// ── ANALYTICS ─────────────────────────────────────────────────────────────
+router.get('/analytics', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const orders = queryAll(db, 'SELECT * FROM orders ORDER BY created_at ASC');
-    const products = queryAll(db, 'SELECT * FROM products');
-    const orderItems = queryAll(db, 'SELECT * FROM order_items');
-
-    const totalRevenue = orders.reduce((sum: number, o: any) => o.payment_status === 'PAID' || o.payment_status === 'SUCCESS' ? sum + Number(o.grand_total) : sum, 0);
+    const db = getDb();
+    const [ordersRes, itemsRes, productsRes] = await Promise.all([
+      db.from('orders').select('*'),
+      db.from('order_items').select('*'),
+      db.from('products').select('id', { count: 'exact', head: true })
+    ]);
+    const orders = ordersRes.data ?? [];
+    const items = itemsRes.data ?? [];
+    const paidOrders = orders.filter((o: any) =>
+      o.payment_status === 'PAID' || o.payment_status === 'SUCCESS');
+    const totalRevenue = paidOrders.reduce((a: number, o: any) => a + Number(o.grand_total), 0);
     const totalOrders = orders.length;
-
-    // Payment methods breakdown
+    const avgOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
     const paymentMethods: Record<string, { count: number; total: number }> = {};
     orders.forEach((o: any) => {
-      const pm = o.payment_method || 'Other';
-      if (!paymentMethods[pm]) {
-        paymentMethods[pm] = { count: 0, total: 0 };
-      }
+      const pm = o.payment_method || 'Unknown';
+      if (!paymentMethods[pm]) paymentMethods[pm] = { count: 0, total: 0 };
       paymentMethods[pm].count++;
-      paymentMethods[pm].total += Number(o.grand_total);
-    });
-
-    // Top selling products
-    const productSales: Record<string, { id: string; title: string; count: number; revenue: number; image: string }> = {};
-    orderItems.forEach((item: any) => {
-      if (!productSales[item.product_id]) {
-        productSales[item.product_id] = {
-          id: item.product_id,
-          title: item.product_title,
-          count: 0,
-          revenue: 0,
-          image: item.product_image
-        };
+      if (o.payment_status === 'PAID' || o.payment_status === 'SUCCESS') {
+        paymentMethods[pm].total += Number(o.grand_total);
       }
-      productSales[item.product_id].count += Number(item.quantity);
-      productSales[item.product_id].revenue += Number(item.total_price);
     });
-
-    const topProducts = Object.values(productSales)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-
-    // Status breakdown
-    const statusCounts: Record<string, number> = {
-      'Awaiting Payment Verification': 0,
-      'Payment Confirmed': 0,
-      'Preparing Order': 0,
-      'Packed': 0,
-      'Shipped': 0,
-      'Out For Delivery': 0,
-      'Delivered': 0,
-      'Cancelled': 0
-    };
-
+    const statusCounts: Record<string, number> = {};
     orders.forEach((o: any) => {
-      let st = o.order_status;
-      if (st === 'Preparing') st = 'Preparing Order';
-      if (st === 'Out for Delivery') st = 'Out For Delivery';
-      if (statusCounts[st] !== undefined) {
-        statusCounts[st]++;
-      }
+      const st = o.order_status;
+      statusCounts[st] = (statusCounts[st] || 0) + 1;
     });
-
+    const productTotals: Record<string, { count: number; revenue: number; title: string; image: string }> = {};
+    items.forEach((it: any) => {
+      if (!productTotals[it.product_id]) {
+        productTotals[it.product_id] = { count: 0, revenue: 0, title: it.product_title, image: it.product_image };
+      }
+      productTotals[it.product_id].count += Number(it.quantity);
+      productTotals[it.product_id].revenue += Number(it.total_price);
+    });
+    const topProducts = Object.entries(productTotals)
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
     res.json({
-      totalRevenue,
+      totalRevenue: Math.round(totalRevenue),
       totalOrders,
-      avgOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
+      avgOrderValue: Math.round(avgOrderValue),
       paymentMethods,
       topProducts,
       statusCounts,
-      totalCatalogProducts: products.length
+      totalCatalogProducts: productsRes.count ?? 0
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// PRODUCT MANAGEMENT: Add new product
+// ── CREATE PRODUCT ────────────────────────────────────────────────────────
 router.post('/products', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
+    const now = new Date().toISOString();
     const {
-      title,
-      category_id,
-      category_name,
-      price,
-      discount_price,
-      stock,
-      fabric,
-      embroidery,
-      color,
-      sizes,
-      description,
-      care_instructions,
-      images,
-      is_featured,
-      is_new_arrival
+      title, categoryId, categoryName, price, discountPrice,
+      stock, fabric, embroidery, color, sizes, description,
+      careInstructions, images, isFeatured, isNewArrival, displayOrder
     } = req.body;
-
-    if (!title?.trim() || !category_id || price === undefined || Number(price) <= 0) {
-      return res.status(400).json({ error: 'Title, category, and price are required' });
+    if (!title || !categoryId) {
+      return res.status(400).json({ error: 'title and categoryId are required' });
     }
-
-    const sizeList = asStringList(sizes);
-    // Filter out base64 data URLs — only URL paths stored in product_images.
-    // Actual file uploads go through POST /api/images/upload/:productId
-    const imageList = asStringList(images).filter((u: string) => !u.startsWith('data:'));
-    if (sizeList.length === 0) {
-      return res.status(400).json({ error: 'At least one available size is required' });
-    }
-
     const id = `prod_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const slug = `${buildSlug(title)}-${Date.now().toString().slice(-4)}`;
-    const now = new Date().toISOString();
-    const displayOrder = Number(queryAll(db, 'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM products')[0]?.next_order || 1);
-
-    db.run(
-      `INSERT INTO products (
-        id, title, slug, category_id, category_name, price, discount_price, stock, fabric,
-        embroidery, color, sizes_json, description, care_instructions, images_json,
-        rating, review_count, is_featured, is_new_arrival, display_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        id,
-        title,
-        slug,
-        category_id,
-        category_name || 'Haute Couture',
-        Number(price),
-        discount_price ? Number(discount_price) : null,
-        Number(stock || 10),
-        fabric || 'Pure Handloom Silk',
-        embroidery || 'Hand Zardozi & Mukaish',
-        color || 'Heritage Classic',
-        JSON.stringify(sizeList),
-        description || 'Handcrafted couture piece from Lucknow Chikan Emporium Atelier.',
-        care_instructions || 'Dry Clean Only. Preserve in heirloom storage box.',
-        JSON.stringify(imageList),
-        5.0,
-        0,
-        is_featured ? 1 : 0,
-        is_new_arrival ? 1 : 0,
-        displayOrder,
-        now,
-        now
-      ]
-    );
-
-    // Add inventory entries
-    syncInventory(db, id, sizeList, Number(stock ?? 10), now);
-
-    // Write URL-based images to product_images (permanent table)
-    imageList.forEach((url: string, idx: number) => {
-      const imgId = `pimg_${id}_${idx}_${Date.now()}${idx}`;
-      db.run(
-        `INSERT OR IGNORE INTO product_images
-           (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
-        [imgId, id, url, idx, idx === 0 ? 1 : 0, now, now]
-      );
+    let slug = buildSlug(title);
+    const { data: existing } = await db.from('products').select('id').eq('slug', slug).maybeSingle();
+    if (existing) slug = `${slug}-${Date.now()}`;
+    const sizeList = asStringList(sizes);
+    const imageList = asStringList(images);
+    const { error: insertErr } = await db.from('products').insert({
+      id, title, slug, category_id: categoryId, category_name: categoryName || '',
+      price: Number(price), discount_price: discountPrice ? Number(discountPrice) : null,
+      stock: Number(stock ?? 10), fabric: fabric || null, embroidery: embroidery || null,
+      color: color || null, sizes_json: JSON.stringify(sizeList),
+      description: description || '', care_instructions: careInstructions || null,
+      images_json: JSON.stringify(imageList), rating: 4.8, review_count: 0,
+      is_featured: Boolean(isFeatured), is_new_arrival: Boolean(isNewArrival),
+      display_order: Number(displayOrder ?? 0), created_at: now, updated_at: now
     });
-
-    persistDb();
-
-    res.status(201).json({ id, slug, message: 'Product created successfully' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// UPDATE PRODUCT
-router.put('/products/:id', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
-    const db = await getDb();
-    const { id } = req.params;
-    const {
-      title,
-      category_id,
-      category_name,
-      price,
-      discount_price,
-      stock,
-      fabric,
-      embroidery,
-      color,
-      sizes,
-      description,
-      care_instructions,
-      images,
-      is_featured,
-      is_new_arrival
-    } = req.body;
-
-    const existing = queryAll(db, 'SELECT * FROM products WHERE id = ? LIMIT 1', [id])[0];
-    if (!existing) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-    if (price !== undefined && Number(price) <= 0) {
-      return res.status(400).json({ error: 'Price must be greater than zero' });
-    }
-
-    const sizeList = sizes === undefined ? JSON.parse(existing.sizes_json || '[]') : asStringList(sizes);
-    if (sizeList.length === 0) {
-      return res.status(400).json({ error: 'At least one available size is required' });
-    }
-    const imageList = images === undefined
-      ? JSON.parse(existing.images_json || '[]')
-      : asStringList(images).filter((u: string) => !u.startsWith('data:'));
-    const now = new Date().toISOString();
-    const nextTitle = title?.trim() || existing.title;
-    const nextStock = stock === undefined ? Number(existing.stock) : Number(stock);
-
-    db.run(
-      `UPDATE products SET
-        title = ?,
-        category_id = ?,
-        category_name = ?,
-        price = ?,
-        discount_price = ?,
-        stock = ?, fabric = ?, embroidery = ?, color = ?, sizes_json = ?, description = ?,
-        care_instructions = ?, images_json = ?, is_featured = ?, is_new_arrival = ?, updated_at = ?
-       WHERE id = ?`,
-      [
-        nextTitle, category_id || existing.category_id, category_name || existing.category_name,
-        price === undefined ? Number(existing.price) : Number(price),
-        discount_price === undefined ? existing.discount_price : (discount_price ? Number(discount_price) : null),
-        nextStock, fabric ?? existing.fabric, embroidery ?? existing.embroidery, color ?? existing.color,
-        JSON.stringify(sizeList), description ?? existing.description, care_instructions ?? existing.care_instructions,
-        JSON.stringify(imageList), is_featured === undefined ? existing.is_featured : (is_featured ? 1 : 0),
-        is_new_arrival === undefined ? existing.is_new_arrival : (is_new_arrival ? 1 : 0), now,
-        id
-      ]
-    );
-
-    // If images were explicitly provided, sync them into product_images
-    if (images !== undefined) {
-      // Remove old product_images rows and replace with new set
-      db.run('DELETE FROM product_images WHERE product_id = ?', [id]);
-      imageList.forEach((url: string, idx: number) => {
-        const imgId = `pimg_${id}_upd_${idx}_${Date.now()}${idx}`;
-        db.run(
-          `INSERT OR IGNORE INTO product_images
-             (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
-          [imgId, id, url, idx, idx === 0 ? 1 : 0, now, now]
-        );
+    if (insertErr) throw insertErr;
+    // Seed product_images from imageList
+    for (let i = 0; i < imageList.length; i++) {
+      await db.from('product_images').insert({
+        id: `pimg_${id}_${i}`, product_id: id, image_url: imageList[i],
+        display_order: i, is_cover: i === 0, view_type: 'gallery',
+        alt_text: title, created_at: now, updated_at: now
       });
     }
-
-    syncInventory(db, id, sizeList, nextStock, now);
-
-    persistDb();
-    res.json({ message: 'Product updated successfully' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    // Seed inventory
+    await syncInventory(db, id, sizeList, Number(stock ?? 10), now);
+    res.status(201).json({ id, slug, message: 'Product created successfully' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// Replace, remove, reorder, or set a cover image by submitting the desired ordered array.
-// NOTE: For file uploads use POST /api/images/upload/:productId instead.
-// This endpoint accepts URL strings only (no base64).
+// ── UPDATE PRODUCT ────────────────────────────────────────────────────────
+router.put('/products/:id', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const { id } = req.params;
+    const { data: existing, error: fetchErr } = await db
+      .from('products').select('*').eq('id', id).maybeSingle();
+    if (fetchErr || !existing) return res.status(404).json({ error: 'Product not found' });
+    const {
+      title, categoryId, categoryName, price, discountPrice,
+      stock, fabric, embroidery, color, sizes, description,
+      careInstructions, images, isFeatured, isNewArrival, displayOrder
+    } = req.body;
+    const sizeList = sizes !== undefined ? asStringList(sizes) : JSON.parse(existing.sizes_json ?? '[]');
+    const imageList = images !== undefined ? asStringList(images) : JSON.parse(existing.images_json ?? '[]');
+    const updates: Record<string, any> = { updated_at: now };
+    if (title !== undefined) { updates.title = title; updates.slug = buildSlug(title); }
+    if (categoryId !== undefined) updates.category_id = categoryId;
+    if (categoryName !== undefined) updates.category_name = categoryName;
+    if (price !== undefined) updates.price = Number(price);
+    if (discountPrice !== undefined) updates.discount_price = discountPrice ? Number(discountPrice) : null;
+    if (stock !== undefined) updates.stock = Number(stock);
+    if (fabric !== undefined) updates.fabric = fabric || null;
+    if (embroidery !== undefined) updates.embroidery = embroidery || null;
+    if (color !== undefined) updates.color = color || null;
+    if (sizes !== undefined) updates.sizes_json = JSON.stringify(sizeList);
+    if (description !== undefined) updates.description = description;
+    if (careInstructions !== undefined) updates.care_instructions = careInstructions || null;
+    if (images !== undefined) updates.images_json = JSON.stringify(imageList);
+    if (isFeatured !== undefined) updates.is_featured = Boolean(isFeatured);
+    if (isNewArrival !== undefined) updates.is_new_arrival = Boolean(isNewArrival);
+    if (displayOrder !== undefined) updates.display_order = Number(displayOrder);
+    const { error: updateErr } = await db.from('products').update(updates).eq('id', id);
+    if (updateErr) throw updateErr;
+    // Re-sync inventory if sizes changed
+    if (sizes !== undefined) {
+      await syncInventory(db, id, sizeList, Number(updates.stock ?? existing.stock), now);
+    }
+    res.json({ message: 'Product updated successfully' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// ── UPDATE PRODUCT IMAGES (legacy PATCH) ─────────────────────────────────
 router.patch('/products/:id/images', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const { id } = req.params;
-    const images = asStringList(req.body.images).filter((u: string) => !u.startsWith('data:'));
-    const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
-    if (!product) return res.status(404).json({ error: 'Product not found' });
-
+    const db = getDb();
     const now = new Date().toISOString();
-
-    // Replace product_images rows with the new ordered URL list
-    db.run('DELETE FROM product_images WHERE product_id = ?', [id]);
-    images.forEach((url: string, idx: number) => {
-      const imgId = `pimg_${id}_patch_${idx}_${Date.now()}${idx}`;
-      db.run(
-        `INSERT OR IGNORE INTO product_images
-           (id, product_id, image_url, display_order, is_cover, view_type, alt_text, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'gallery', NULL, ?, ?)`,
-        [imgId, id, url, idx, idx === 0 ? 1 : 0, now, now]
-      );
-    });
-
-    // Keep images_json in sync
-    db.run('UPDATE products SET images_json = ?, updated_at = ? WHERE id = ?', [JSON.stringify(images), now, id]);
-    persistDb();
-    res.json({ message: 'Product images updated successfully', images });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const { id } = req.params;
+    const { images } = req.body as { images: string[] };
+    if (!Array.isArray(images)) return res.status(400).json({ error: 'images must be an array' });
+    await db.from('products')
+      .update({ images_json: JSON.stringify(images), updated_at: now })
+      .eq('id', id);
+    // Sync product_images table
+    await db.from('product_images').delete().eq('product_id', id);
+    for (let i = 0; i < images.length; i++) {
+      await db.from('product_images').insert({
+        id: `pimg_${id}_${i}_${Date.now()}`, product_id: id, image_url: images[i],
+        display_order: i, is_cover: i === 0, view_type: 'gallery',
+        alt_text: null, created_at: now, updated_at: now
+      });
+    }
+    res.json({ message: 'Images updated', images });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// DELETE PRODUCT
+// ── DELETE PRODUCT ────────────────────────────────────────────────────────
 router.delete('/products/:id', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
-
-    const product = queryAll(db, 'SELECT id FROM products WHERE id = ? LIMIT 1', [id])[0];
+    const { data: product } = await db.from('products').select('id').eq('id', id).maybeSingle();
     if (!product) return res.status(404).json({ error: 'Product not found' });
-    db.run('DELETE FROM reviews WHERE product_id = ?', [id]);
-    db.run('DELETE FROM product_images WHERE product_id = ?', [id]);
-    db.run('DELETE FROM products WHERE id = ?', [id]);
-    db.run('DELETE FROM inventory WHERE product_id = ?', [id]);
-    persistDb();
-
-    res.json({ message: 'Product removed from catalog' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    // product_images, reviews, inventory cascade-delete via FK in Supabase schema
+    const { error } = await db.from('products').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ message: 'Product deleted successfully' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// GET CUSTOMERS
-router.get('/customers', authenticateAdmin, async (req: Request, res: Response) => {
+// ── CUSTOMERS ─────────────────────────────────────────────────────────────
+router.get('/customers', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const users = queryAll(db, 'SELECT id, name, email, phone, role, created_at, updated_at FROM users');
-
-    const enriched = users.map((u: any) => {
-      const orders = queryAll(db, 'SELECT grand_total, order_status FROM orders WHERE user_id = ? OR customer_email = ?', [u.id, u.email]);
-      const totalSpent = orders.reduce((sum: number, o: any) => sum + Number(o.grand_total), 0);
-      return {
-        ...u,
-        totalOrders: orders.length,
-        totalSpent
-      };
-    });
-
+    const db = getDb();
+    const { data: users, error } = await db
+      .from('users')
+      .select('id, name, email, phone, role, created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const enriched = await Promise.all((users ?? []).map(async (u: any) => {
+      const { count } = await db
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', u.id);
+      return { ...u, orderCount: count ?? 0 };
+    }));
     res.json(enriched);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// GET COUPONS
-router.get('/coupons', authenticateAdmin, async (req: Request, res: Response) => {
+// ── COUPONS ───────────────────────────────────────────────────────────────
+router.get('/coupons', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const coupons = queryAll(db, 'SELECT * FROM coupons ORDER BY usage_count DESC');
-    res.json(coupons);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const db = getDb();
+    const { data, error } = await db.from('coupons').select('*').order('id', { ascending: true });
+    if (error) throw error;
+    res.json(data ?? []);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// CREATE COUPON
 router.post('/coupons', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const { code, discount_type, discount_value, min_spend, max_discount, expiry_date } = req.body;
-
-    if (!code || !discount_type || !discount_value) {
-      return res.status(400).json({ error: 'Code, discount type, and discount value are required' });
+    const db = getDb();
+    const { code, discountType, discountValue, minSpend, maxDiscount, isActive, expiryDate } = req.body;
+    if (!code || !discountType || discountValue === undefined) {
+      return res.status(400).json({ error: 'code, discountType, and discountValue are required' });
     }
-
     const id = `coup_${Date.now()}`;
-    db.run(
-      `INSERT INTO coupons (id, code, discount_type, discount_value, min_spend, max_discount, is_active, usage_count, expiry_date)
-       VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?);`,
-      [id, code.toUpperCase(), discount_type, Number(discount_value), Number(min_spend || 0), max_discount ? Number(max_discount) : null, expiry_date || '2026-12-31']
-    );
-
-    persistDb();
+    const { error } = await db.from('coupons').insert({
+      id, code: code.toUpperCase().trim(), discount_type: discountType,
+      discount_value: Number(discountValue), min_spend: Number(minSpend || 0),
+      max_discount: maxDiscount ? Number(maxDiscount) : null,
+      is_active: Boolean(isActive !== false), usage_count: 0,
+      expiry_date: expiryDate || null
+    });
+    if (error) throw error;
     res.status(201).json({ id, message: 'Coupon created successfully' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// TOGGLE COUPON
 router.patch('/coupons/:id/toggle', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
-
-    db.run('UPDATE coupons SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?', [id]);
-    persistDb();
-
-    res.json({ message: 'Coupon status toggled' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const { data: coupon } = await db.from('coupons').select('is_active').eq('id', id).maybeSingle();
+    if (!coupon) return res.status(404).json({ error: 'Coupon not found' });
+    const { error } = await db.from('coupons').update({ is_active: !coupon.is_active }).eq('id', id);
+    if (error) throw error;
+    res.json({ message: `Coupon ${coupon.is_active ? 'disabled' : 'enabled'}` });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// INVENTORY
-router.get('/inventory', authenticateAdmin, async (req: Request, res: Response) => {
+// ── INVENTORY ─────────────────────────────────────────────────────────────
+router.get('/inventory', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const inventory = queryAll(db, `
-      SELECT i.*, p.title as product_title, p.category_name, p.price, p.images_json
-      FROM inventory i
-      JOIN products p ON i.product_id = p.id
-      ORDER BY i.stock_quantity ASC
-    `);
-
-    const formatted = inventory.map((inv: any) => ({
-      ...inv,
-      images: JSON.parse(inv.images_json || '[]')
+    const db = getDb();
+    const { data: invRows, error } = await db
+      .from('inventory')
+      .select('*, products(title, category_name, price)')
+      .order('product_id', { ascending: true });
+    if (error) throw error;
+    const formatted = (invRows ?? []).map((r: any) => ({
+      id: r.id, product_id: r.product_id, sku: r.sku, size: r.size,
+      stock_quantity: r.stock_quantity, low_stock_threshold: r.low_stock_threshold,
+      last_restocked_at: r.last_restocked_at,
+      product_title: r.products?.title ?? '',
+      category_name: r.products?.category_name ?? '',
+      price: r.products?.price ?? 0
     }));
-
     res.json(formatted);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// RESTOCK INVENTORY
 router.patch('/inventory/:id/restock', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
     const { quantity } = req.body;
-
-    const qty = Number(quantity || 10);
-    const now = new Date().toISOString();
-
-    db.run('UPDATE inventory SET stock_quantity = stock_quantity + ?, last_restocked_at = ? WHERE id = ?', [qty, now, id]);
-
-    // Also update main product stock
-    const inv = queryAll(db, 'SELECT product_id FROM inventory WHERE id = ?', [id])[0];
-    if (inv) {
-      db.run('UPDATE products SET stock = stock + ? WHERE id = ?', [qty, inv.product_id]);
+    if (!quantity || isNaN(Number(quantity))) {
+      return res.status(400).json({ error: 'quantity must be a number' });
     }
-
-    persistDb();
-    res.json({ message: `Restocked by +${qty} units successfully` });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+    const { data: inv } = await db.from('inventory').select('*').eq('id', id).maybeSingle();
+    if (!inv) return res.status(404).json({ error: 'Inventory item not found' });
+    const newQty = Number(inv.stock_quantity) + Number(quantity);
+    const now = new Date().toISOString();
+    const { error } = await db.from('inventory')
+      .update({ stock_quantity: newQty, last_restocked_at: now })
+      .eq('id', id);
+    if (error) throw error;
+    // Update parent product stock to max of all sizes
+    const { data: allSizes } = await db
+      .from('inventory')
+      .select('stock_quantity')
+      .eq('product_id', inv.product_id);
+    const maxStock = Math.max(...(allSizes ?? []).map((s: any) => Number(s.stock_quantity)));
+    await db.from('products').update({ stock: maxStock, updated_at: now }).eq('id', inv.product_id);
+    res.json({ message: `Restocked +${quantity} units. New total: ${newQty}` });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// ── MIGRATE IMAGES TO CLOUDINARY ────────────────────────────────────────
-// POST /api/admin/migrate-images
-// Migrates all existing local images from /uploads/ to Cloudinary
-// Admin only. This should be run once when setting up Cloudinary.
-router.post('/migrate-images', authenticateAdmin, async (req: Request, res: Response) => {
-  try {
-    const db = await getDb();
-    const { MigrationService } = await import('../services/migrationService.js');
-
-    const migrationService = new MigrationService(db);
-    const report = await migrationService.migrateLocalImagesToCloudinary();
-
-    persistDb();
-
-    res.json({
-      success: true,
-      message: 'Image migration completed',
-      report
-    });
-  } catch (err: any) {
-    console.error('Migration failed:', err);
-    res.status(500).json({
-      error: err.message || 'Image migration failed'
-    });
-  }
-});
-
+// ── EXPORT ROUTER ─────────────────────────────────────────────────────────
 export default router;

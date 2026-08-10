@@ -312,9 +312,6 @@ export const api = {
     }),
 
   // ── Category Management ─────────────────────────────────────────────────────
-  // Public: fetches categories (used by Navbar and filtering)
-  getCategories: () => request<Category[]>('/products/categories'),
-
   // Admin: fetches all categories including inactive
   getAdminCategories: () => adminRequest<any[]>('/categories/all'),
 

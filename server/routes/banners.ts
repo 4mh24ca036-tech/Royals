@@ -1,24 +1,23 @@
+/**
+ * server/routes/banners.ts
+ *
+ * Banner management — Cloudinary is the ONLY image storage backend.
+ * No local filesystem writes. All banner images go to Cloudinary;
+ * the resulting secure_url is stored in Supabase banners table.
+ */
+
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import sharp from 'sharp';
-import path from 'path';
-import fs from 'fs';
 import { getDb, persistDb } from '../db.js';
 import { authenticateAdmin } from '../auth.js';
+import { getCloudinaryService } from '../services/cloudinary.js';
 
 const router = Router();
 
-// ── Storage ──────────────────────────────────────────────────────────────
-const BANNERS_DIR = path.join(process.cwd(), 'public', 'uploads', 'banners');
-
-function ensureBannersDir() {
-  if (!fs.existsSync(BANNERS_DIR)) fs.mkdirSync(BANNERS_DIR, { recursive: true });
-}
-
-// Multer: memory storage so sharp can process before writing
+// ── Multer: memory storage only (no disk) ─────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024, files: 2 }, // 15 MB, max 2 files per request
+  limits: { fileSize: 15 * 1024 * 1024, files: 2 },
   fileFilter(_req, file, cb) {
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.mimetype)) {
@@ -28,91 +27,80 @@ const upload = multer({
   }
 });
 
-// ── DB helpers ────────────────────────────────────────────────────────────
-function queryAll(db: any, sql: string, params: any[] = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) stmt.bind(params);
-  const results: any[] = [];
-  while (stmt.step()) results.push(stmt.getAsObject());
-  stmt.free();
-  return results;
-}
-function queryOne(db: any, sql: string, params: any[] = []) {
-  const rows = queryAll(db, sql, params);
-  return rows[0] || null;
-}
-function genId() {
+function genId(): string {
   return `banner_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
 }
 
-// ── Image helpers ─────────────────────────────────────────────────────────
-async function saveImage(
-  buffer: Buffer,
-  mimeType: string,
-  filenameBase: string,
-  width: number
-): Promise<string> {
-  ensureBannersDir();
-  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-  const filename = `${filenameBase}.${ext}`;
-  const destPath = path.join(BANNERS_DIR, filename);
-
-  const s = sharp(buffer).resize({ width, withoutEnlargement: true });
-  if (mimeType === 'image/png') {
-    await s.png({ quality: 85 }).toFile(destPath);
-  } else if (mimeType === 'image/webp') {
-    await s.webp({ quality: 85 }).toFile(destPath);
-  } else {
-    await s.jpeg({ quality: 87, progressive: true }).toFile(destPath);
-  }
-  return `/uploads/banners/${filename}`;
-}
-
-function deleteFile(publicUrl: string) {
-  if (!publicUrl || !publicUrl.startsWith('/uploads/banners/')) return;
-  const filePath = path.join(process.cwd(), 'public', publicUrl);
-  if (fs.existsSync(filePath)) {
-    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
-  }
-}
-
 function formatBanner(row: any) {
-  return {
-    ...row,
-    is_active: Boolean(row.is_active)
-  };
+  return { ...row };
 }
 
-// ── GET /api/banners  (PUBLIC — no auth required) ─────────────────────────
+// ── Upload helper: image → Cloudinary ────────────────────────────────────
+async function uploadBannerImage(
+  buffer: Buffer,
+  originalname: string,
+  folder: string
+): Promise<string> {
+  const cloudinary = getCloudinaryService();
+  if (!cloudinary.isConfigured()) {
+    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.');
+  }
+  const result = await cloudinary.uploadImage(buffer, originalname, folder);
+  return result.secure_url;
+}
+
+// ── Delete helper: remove old Cloudinary asset ────────────────────────────
+async function deleteBannerImage(imageUrl: string): Promise<void> {
+  if (!imageUrl || !imageUrl.includes('cloudinary.com')) return;
+  const cloudinary = getCloudinaryService();
+  try {
+    const match = imageUrl.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+    if (match?.[1]) {
+      await cloudinary.deleteImage(match[1]);
+    }
+  } catch (err) {
+    console.warn('Cloudinary banner delete warning (non-fatal):', err);
+  }
+}
+
+// ── GET /api/banners  (PUBLIC) ────────────────────────────────────────────
 // Returns only active banners ordered by display_order.
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const banners = queryAll(
-      db,
-      'SELECT * FROM banners WHERE is_active = 1 ORDER BY display_order ASC, created_at ASC'
-    );
-    res.json(banners.map(formatBanner));
+    const db = getDb();
+    const { data, error } = await db
+      .from('banners')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    res.json((data ?? []).map(formatBanner));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── GET /api/banners/all  (ADMIN — all banners including inactive) ─────────
+// ── GET /api/banners/all  (ADMIN) ─────────────────────────────────────────
+// Returns all banners including inactive.
 router.get('/all', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
-    const db = await getDb();
-    const banners = queryAll(db, 'SELECT * FROM banners ORDER BY display_order ASC, created_at ASC');
-    res.json(banners.map(formatBanner));
+    const db = getDb();
+    const { data, error } = await db
+      .from('banners')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    res.json((data ?? []).map(formatBanner));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── POST /api/banners  (ADMIN — create banner with optional image upload) ──
+// ── POST /api/banners  (ADMIN) ────────────────────────────────────────────
 // Accepts multipart/form-data.
-// Fields: title, subtitle, description, button_text, button_link, tag, category_id, is_active
-// Files:  image (desktop), mobile_image (optional)
+// Files: image (desktop, required), mobile_image (optional)
 router.post(
   '/',
   authenticateAdmin,
@@ -122,11 +110,10 @@ router.post(
   ]),
   async (req: Request, res: Response) => {
     try {
-      const db = await getDb();
+      const db = getDb();
       const files = req.files as Record<string, Express.Multer.File[]> | undefined;
-
       const desktopFile = files?.['image']?.[0];
-      const mobileFile  = files?.['mobile_image']?.[0];
+      const mobileFile = files?.['mobile_image']?.[0];
 
       if (!desktopFile) {
         return res.status(400).json({ error: 'A desktop banner image is required.' });
@@ -135,49 +122,54 @@ router.post(
       const id = genId();
       const now = new Date().toISOString();
 
-      // Determine next display order
-      const maxRow = queryOne(db, 'SELECT MAX(display_order) as m FROM banners');
-      const displayOrder = ((maxRow?.m as number) ?? -1) + 1;
+      // Get next display_order
+      const { data: maxRow } = await db
+        .from('banners')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1);
+      const displayOrder = ((maxRow?.[0]?.display_order as number) ?? -1) + 1;
 
-      // Save desktop image (max 1920px wide)
-      const imageUrl = await saveImage(
+      // Upload desktop image to Cloudinary
+      const imageUrl = await uploadBannerImage(
         desktopFile.buffer,
-        desktopFile.mimetype,
-        `${id}_desktop`,
-        1920
+        desktopFile.originalname || 'banner-desktop',
+        `royals/banners/${id}`
       );
 
-      // Save mobile image (max 768px wide) if provided
+      // Upload mobile image if provided
       let mobileImageUrl = '';
       if (mobileFile) {
-        mobileImageUrl = await saveImage(
+        mobileImageUrl = await uploadBannerImage(
           mobileFile.buffer,
-          mobileFile.mimetype,
-          `${id}_mobile`,
-          768
+          mobileFile.originalname || 'banner-mobile',
+          `royals/banners/${id}`
         );
       }
 
-      const {
-        title = '',
-        subtitle = '',
-        description = '',
-        button_text = '',
-        button_link = '',
-        tag = '',
-        category_id = '',
-        is_active = '1'
-      } = req.body as Record<string, string>;
+      const body = req.body as Record<string, string>;
+      const isActive = body.is_active === '1' || body.is_active === 'true';
 
-      db.run(
-        `INSERT INTO banners
-           (id, title, subtitle, description, image_url, mobile_image_url, button_text, button_link, tag, category_id, display_order, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, title, subtitle, description, imageUrl, mobileImageUrl, button_text, button_link, tag, category_id, displayOrder, is_active === '1' || is_active === 'true' ? 1 : 0, now, now]
-      );
-      persistDb();
+      const { error: insertErr } = await db.from('banners').insert({
+        id,
+        title: body.title ?? '',
+        subtitle: body.subtitle ?? '',
+        description: body.description ?? '',
+        image_url: imageUrl,
+        mobile_image_url: mobileImageUrl,
+        button_text: body.button_text ?? '',
+        button_link: body.button_link ?? '',
+        tag: body.tag ?? '',
+        category_id: body.category_id ?? '',
+        display_order: displayOrder,
+        is_active: isActive,
+        created_at: now,
+        updated_at: now
+      });
 
-      const banner = queryOne(db, 'SELECT * FROM banners WHERE id = ?', [id]);
+      if (insertErr) throw insertErr;
+
+      const { data: banner } = await db.from('banners').select('*').eq('id', id).single();
       res.status(201).json({ success: true, banner: formatBanner(banner) });
     } catch (err: any) {
       console.error('Banner create error:', err);
@@ -186,7 +178,8 @@ router.post(
   }
 );
 
-// ── PUT /api/banners/:id  (ADMIN — update metadata + optionally replace images) ──
+// ── PUT /api/banners/:id  (ADMIN) ─────────────────────────────────────────
+// Update metadata + optionally replace images.
 router.put(
   '/:id',
   authenticateAdmin,
@@ -196,56 +189,74 @@ router.put(
   ]),
   async (req: Request, res: Response) => {
     try {
-      const db = await getDb();
+      const db = getDb();
       const { id } = req.params;
-      const existing = queryOne(db, 'SELECT * FROM banners WHERE id = ?', [id]);
-      if (!existing) return res.status(404).json({ error: 'Banner not found' });
+
+      const { data: existing, error: fetchErr } = await db
+        .from('banners')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchErr || !existing) {
+        return res.status(404).json({ error: 'Banner not found' });
+      }
 
       const files = req.files as Record<string, Express.Multer.File[]> | undefined;
       const desktopFile = files?.['image']?.[0];
-      const mobileFile  = files?.['mobile_image']?.[0];
-
+      const mobileFile = files?.['mobile_image']?.[0];
       const now = new Date().toISOString();
+
       let imageUrl: string = existing.image_url as string;
       let mobileImageUrl: string = (existing.mobile_image_url as string) || '';
 
-      // Replace desktop image if new one provided
+      // Replace desktop image if new one uploaded
       if (desktopFile) {
-        deleteFile(existing.image_url as string);
-        imageUrl = await saveImage(desktopFile.buffer, desktopFile.mimetype, `${id}_desktop_${Date.now()}`, 1920);
+        await deleteBannerImage(existing.image_url as string);
+        imageUrl = await uploadBannerImage(
+          desktopFile.buffer,
+          desktopFile.originalname || 'banner-desktop',
+          `royals/banners/${id}`
+        );
       }
 
-      // Replace / add mobile image if provided
+      // Replace / add mobile image if uploaded
       if (mobileFile) {
-        if (mobileImageUrl) deleteFile(mobileImageUrl);
-        mobileImageUrl = await saveImage(mobileFile.buffer, mobileFile.mimetype, `${id}_mobile_${Date.now()}`, 768);
+        if (mobileImageUrl) await deleteBannerImage(mobileImageUrl);
+        mobileImageUrl = await uploadBannerImage(
+          mobileFile.buffer,
+          mobileFile.originalname || 'banner-mobile',
+          `royals/banners/${id}`
+        );
       }
 
       const body = req.body as Record<string, string>;
-      const title         = body.title         !== undefined ? body.title         : existing.title;
-      const subtitle      = body.subtitle      !== undefined ? body.subtitle      : existing.subtitle;
-      const description   = body.description   !== undefined ? body.description   : existing.description;
-      const button_text   = body.button_text   !== undefined ? body.button_text   : existing.button_text;
-      const button_link   = body.button_link   !== undefined ? body.button_link   : existing.button_link;
-      const tag           = body.tag           !== undefined ? body.tag           : existing.tag;
-      const category_id   = body.category_id   !== undefined ? body.category_id   : existing.category_id;
-      const is_active     = body.is_active     !== undefined
-        ? (body.is_active === '1' || body.is_active === 'true' ? 1 : 0)
-        : Number(existing.is_active);
 
-      db.run(
-        `UPDATE banners SET
-           title = ?, subtitle = ?, description = ?,
-           image_url = ?, mobile_image_url = ?,
-           button_text = ?, button_link = ?,
-           tag = ?, category_id = ?,
-           is_active = ?, updated_at = ?
-         WHERE id = ?`,
-        [title, subtitle, description, imageUrl, mobileImageUrl, button_text, button_link, tag, category_id, is_active, now, id]
-      );
-      persistDb();
+      const updates: Record<string, any> = {
+        image_url: imageUrl,
+        mobile_image_url: mobileImageUrl,
+        updated_at: now
+      };
 
-      const updated = queryOne(db, 'SELECT * FROM banners WHERE id = ?', [id]);
+      if (body.title !== undefined) updates.title = body.title;
+      if (body.subtitle !== undefined) updates.subtitle = body.subtitle;
+      if (body.description !== undefined) updates.description = body.description;
+      if (body.button_text !== undefined) updates.button_text = body.button_text;
+      if (body.button_link !== undefined) updates.button_link = body.button_link;
+      if (body.tag !== undefined) updates.tag = body.tag;
+      if (body.category_id !== undefined) updates.category_id = body.category_id;
+      if (body.is_active !== undefined) {
+        updates.is_active = body.is_active === '1' || body.is_active === 'true';
+      }
+
+      const { error: updateErr } = await db
+        .from('banners')
+        .update(updates)
+        .eq('id', id);
+
+      if (updateErr) throw updateErr;
+
+      const { data: updated } = await db.from('banners').select('*').eq('id', id).single();
       res.json({ success: true, banner: formatBanner(updated) });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -253,60 +264,96 @@ router.put(
   }
 );
 
-// ── PATCH /api/banners/:id/toggle  (ADMIN — enable/disable) ──────────────
+// ── PATCH /api/banners/:id/toggle  (ADMIN) ───────────────────────────────
 router.patch('/:id/toggle', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
-    const banner = queryOne(db, 'SELECT * FROM banners WHERE id = ?', [id]);
-    if (!banner) return res.status(404).json({ error: 'Banner not found' });
 
-    const newActive = banner.is_active ? 0 : 1;
-    db.run('UPDATE banners SET is_active = ?, updated_at = ? WHERE id = ?', [newActive, new Date().toISOString(), id]);
-    persistDb();
+    const { data: banner, error: fetchErr } = await db
+      .from('banners')
+      .select('is_active')
+      .eq('id', id)
+      .single();
 
-    res.json({ success: true, is_active: Boolean(newActive), message: `Banner ${newActive ? 'enabled' : 'disabled'}` });
+    if (fetchErr || !banner) {
+      return res.status(404).json({ error: 'Banner not found' });
+    }
+
+    const newActive = !banner.is_active;
+
+    const { error: updateErr } = await db
+      .from('banners')
+      .update({ is_active: newActive, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (updateErr) throw updateErr;
+
+    res.json({
+      success: true,
+      is_active: newActive,
+      message: `Banner ${newActive ? 'enabled' : 'disabled'}`
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── PATCH /api/banners/reorder  (ADMIN — reorder all banners) ────────────
+// ── PATCH /api/banners/reorder  (ADMIN) ──────────────────────────────────
 // Body: { order: ["id1", "id2", ...] }
 router.patch('/reorder', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { order } = req.body as { order: string[] };
+
     if (!Array.isArray(order) || order.length === 0) {
       return res.status(400).json({ error: 'order must be a non-empty array of banner IDs' });
     }
-    const now = new Date().toISOString();
-    order.forEach((bannerId, idx) => {
-      db.run('UPDATE banners SET display_order = ?, updated_at = ? WHERE id = ?', [idx, now, bannerId]);
-    });
-    persistDb();
 
-    const banners = queryAll(db, 'SELECT * FROM banners ORDER BY display_order ASC');
-    res.json({ success: true, banners: banners.map(formatBanner) });
+    const now = new Date().toISOString();
+
+    for (let i = 0; i < order.length; i++) {
+      await db
+        .from('banners')
+        .update({ display_order: i, updated_at: now })
+        .eq('id', order[i]);
+    }
+
+    const { data: banners } = await db
+      .from('banners')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    res.json({ success: true, banners: (banners ?? []).map(formatBanner) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── DELETE /api/banners/:id  (ADMIN — permanently delete) ─────────────────
+// ── DELETE /api/banners/:id  (ADMIN) ─────────────────────────────────────
 router.delete('/:id', authenticateAdmin, async (req: Request, res: Response) => {
   try {
-    const db = await getDb();
+    const db = getDb();
     const { id } = req.params;
-    const banner = queryOne(db, 'SELECT * FROM banners WHERE id = ?', [id]);
-    if (!banner) return res.status(404).json({ error: 'Banner not found' });
 
-    // Delete physical files (only /uploads/banners/ files, never seed /images/ files)
-    deleteFile(banner.image_url as string);
-    if (banner.mobile_image_url) deleteFile(banner.mobile_image_url as string);
+    const { data: banner, error: fetchErr } = await db
+      .from('banners')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    db.run('DELETE FROM banners WHERE id = ?', [id]);
-    persistDb();
+    if (fetchErr || !banner) {
+      return res.status(404).json({ error: 'Banner not found' });
+    }
+
+    // Delete Cloudinary assets
+    await deleteBannerImage(banner.image_url as string);
+    if (banner.mobile_image_url) {
+      await deleteBannerImage(banner.mobile_image_url as string);
+    }
+
+    const { error: delErr } = await db.from('banners').delete().eq('id', id);
+    if (delErr) throw delErr;
 
     res.json({ success: true, message: 'Banner deleted permanently' });
   } catch (err: any) {

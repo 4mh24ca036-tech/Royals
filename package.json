@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "vite build",
+    "start": "tsx server.ts",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue",
     "lint": "tsc --noEmit",
+    "migrate": "tsx scripts/migrate-to-supabase.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@supabase/supabase-js": "^2.112.2",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "bcryptjs": "^3.0.3",
@@ -31,8 +33,6 @@
     "multer": "^2.0.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "sharp": "^0.33.5",
-    "sql.js": "^1.14.1",
     "vite": "^6.2.3"
   },
   "devDependencies": {
@@ -50,6 +50,7 @@
     "@vitest/ui": "^1.1.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "sql.js": "^1.14.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
