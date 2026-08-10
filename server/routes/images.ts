@@ -68,130 +68,128 @@ router.get('/product/:productId', async (req: Request, res: Response) => {
   }
 });
 
+// ── Shared upload handler (used by both /upload/:productId and the alias) ─
+async function handleProductImageUpload(req: Request, res: Response): Promise<void> {
+  try {
+    const { productId } = req.params;
+    const db = getDb();
+    const cloudinary = getCloudinaryService();
+
+    if (!cloudinary.isConfigured()) {
+      return res.status(503).json({
+        error: 'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.'
+      });
+    }
+
+    // Verify product exists
+    const { data: product, error: prodErr } = await db
+      .from('products')
+      .select('id')
+      .eq('id', productId)
+      .single();
+
+    if (prodErr || !product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No image files provided' });
+    }
+
+    // Determine starting display_order
+    const { data: maxRow } = await db
+      .from('product_images')
+      .select('display_order')
+      .eq('product_id', productId)
+      .order('display_order', { ascending: false })
+      .limit(1);
+
+    const maxOrder = maxRow?.[0]?.display_order ?? -1;
+
+    // Is this the first image for this product?
+    const { count: existingCount } = await db
+      .from('product_images')
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', productId);
+
+    const isFirstBatch = (existingCount ?? 0) === 0;
+    const now = new Date().toISOString();
+    const savedImages: any[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const imgId = genImageId();
+
+      // Upload to Cloudinary
+      const cloudinaryResponse = await cloudinary.uploadImage(
+        file.buffer,
+        file.originalname || `image-${Date.now()}`,
+        `royals/products/${productId}`
+      );
+
+      const isCover = isFirstBatch && i === 0;
+      const altText = (req.body.altText as string || '').trim() || null;
+      const viewType = (req.body.viewType as string || 'gallery').trim();
+
+      const { error: imgErr } = await db.from('product_images').insert({
+        id: imgId,
+        product_id: productId,
+        image_url: cloudinaryResponse.secure_url,
+        display_order: maxOrder + 1 + i,
+        is_cover: isCover,
+        view_type: viewType,
+        alt_text: altText,
+        created_at: now,
+        updated_at: now
+      });
+
+      if (imgErr) throw imgErr;
+
+      savedImages.push({
+        id: imgId,
+        product_id: productId,
+        image_url: cloudinaryResponse.secure_url,
+        cloudinary_public_id: cloudinaryResponse.public_id,
+        display_order: maxOrder + 1 + i,
+        is_cover: isCover,
+        view_type: viewType,
+        alt_text: altText,
+        created_at: now,
+        updated_at: now
+      });
+    }
+
+    await syncImagesJson(db, productId);
+
+    res.status(201).json({
+      success: true,
+      message: `${savedImages.length} image(s) uploaded to Cloudinary successfully`,
+      images: savedImages,
+      storage: 'cloudinary'
+    });
+  } catch (err: any) {
+    console.error('Image upload error:', err);
+    res.status(500).json({ error: err.message || 'Image upload failed' });
+  }
+}
+
 // ── POST /api/images/upload/:productId ────────────────────────────────────
 // Admin — upload product images directly to Cloudinary.
 router.post(
   '/upload/:productId',
   authenticateAdmin,
   upload.array('images', 10),
-  async (req: Request, res: Response) => {
-    try {
-      const db = getDb();
-      const { productId } = req.params;
-      const cloudinary = getCloudinaryService();
-
-      if (!cloudinary.isConfigured()) {
-        return res.status(503).json({
-          error: 'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.'
-        });
-      }
-
-      // Verify product exists
-      const { data: product, error: prodErr } = await db
-        .from('products')
-        .select('id')
-        .eq('id', productId)
-        .single();
-
-      if (prodErr || !product) {
-        return res.status(404).json({ error: 'Product not found' });
-      }
-
-      const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: 'No image files provided' });
-      }
-
-      // Determine starting display_order
-      const { data: maxRow } = await db
-        .from('product_images')
-        .select('display_order')
-        .eq('product_id', productId)
-        .order('display_order', { ascending: false })
-        .limit(1);
-
-      const maxOrder = maxRow?.[0]?.display_order ?? -1;
-
-      // Is this the first image for this product?
-      const { count: existingCount } = await db
-        .from('product_images')
-        .select('*', { count: 'exact', head: true })
-        .eq('product_id', productId);
-
-      const isFirstBatch = (existingCount ?? 0) === 0;
-      const now = new Date().toISOString();
-      const savedImages: any[] = [];
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const imgId = genImageId();
-
-        // Upload to Cloudinary
-        const cloudinaryResponse = await cloudinary.uploadImage(
-          file.buffer,
-          file.originalname || `image-${Date.now()}`,
-          `royals/products/${productId}`
-        );
-
-        const isCover = isFirstBatch && i === 0;
-        const altText = (req.body.altText as string || '').trim() || null;
-        const viewType = (req.body.viewType as string || 'gallery').trim();
-
-        const { error: imgErr } = await db.from('product_images').insert({
-          id: imgId,
-          product_id: productId,
-          image_url: cloudinaryResponse.secure_url,
-          display_order: maxOrder + 1 + i,
-          is_cover: isCover,
-          view_type: viewType,
-          alt_text: altText,
-          created_at: now,
-          updated_at: now
-        });
-
-        if (imgErr) throw imgErr;
-
-        savedImages.push({
-          id: imgId,
-          product_id: productId,
-          image_url: cloudinaryResponse.secure_url,
-          cloudinary_public_id: cloudinaryResponse.public_id,
-          display_order: maxOrder + 1 + i,
-          is_cover: isCover,
-          view_type: viewType,
-          alt_text: altText,
-          created_at: now,
-          updated_at: now
-        });
-      }
-
-      await syncImagesJson(db, productId);
-
-      res.status(201).json({
-        success: true,
-        message: `${savedImages.length} image(s) uploaded to Cloudinary successfully`,
-        images: savedImages,
-        storage: 'cloudinary'
-      });
-    } catch (err: any) {
-      console.error('Image upload error:', err);
-      res.status(500).json({ error: err.message || 'Image upload failed' });
-    }
-  }
+  handleProductImageUpload
 );
 
-// Alias — kept for backward compatibility with admin panel
+// Alias — backward compatibility with admin panel calls that use the
+// /upload-cloudinary/ path. Shares the exact same handler.
 router.post(
   '/upload-cloudinary/:productId',
   authenticateAdmin,
   upload.array('images', 10),
-  async (req: Request, res: Response) => {
-    // Delegate to the standard upload handler by rewriting the URL segment
-    req.url = `/upload/${req.params.productId}`;
-    return router.handle(req, res, () => {
-      res.status(404).json({ error: 'Not found' });
-    });
-  }
+  handleProductImageUpload
 );
 
 // ── DELETE /api/images/:imageId ───────────────────────────────────────────
