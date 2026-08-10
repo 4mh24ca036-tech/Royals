@@ -76,9 +76,10 @@ async function handleProductImageUpload(req: Request, res: Response): Promise<vo
     const cloudinary = getCloudinaryService();
 
     if (!cloudinary.isConfigured()) {
-      return res.status(503).json({
+      res.status(503).json({
         error: 'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.'
       });
+      return;
     }
 
     // Verify product exists
@@ -89,12 +90,14 @@ async function handleProductImageUpload(req: Request, res: Response): Promise<vo
       .single();
 
     if (prodErr || !product) {
-      return res.status(404).json({ error: 'Product not found' });
+      res.status(404).json({ error: 'Product not found' });
+      return;
     }
 
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No image files provided' });
+      res.status(400).json({ error: 'No image files provided' });
+      return;
     }
 
     // Determine starting display_order
