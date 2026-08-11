@@ -17,7 +17,7 @@ const router = Router();
 // ── Multer: memory storage only (no disk) ─────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 10 },
+  limits: { fileSize: 4 * 1024 * 1024, files: 1 },
   fileFilter(_req, file, cb) {
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.mimetype)) {
@@ -139,6 +139,7 @@ async function handleProductImageUpload(req: Request, res: Response): Promise<vo
         id: imgId,
         product_id: productId,
         image_url: cloudinaryResponse.secure_url,
+        cloudinary_public_id: cloudinaryResponse.public_id,
         display_order: maxOrder + 1 + i,
         is_cover: isCover,
         view_type: viewType,
@@ -147,7 +148,10 @@ async function handleProductImageUpload(req: Request, res: Response): Promise<vo
         updated_at: now
       });
 
-      if (imgErr) throw imgErr;
+      if (imgErr) {
+        await cloudinary.deleteImage(cloudinaryResponse.public_id);
+        throw imgErr;
+      }
 
       savedImages.push({
         id: imgId,
@@ -182,7 +186,7 @@ async function handleProductImageUpload(req: Request, res: Response): Promise<vo
 router.post(
   '/upload/:productId',
   authenticateAdmin,
-  upload.array('images', 10),
+  upload.array('images', 1),
   handleProductImageUpload
 );
 
@@ -191,7 +195,7 @@ router.post(
 router.post(
   '/upload-cloudinary/:productId',
   authenticateAdmin,
-  upload.array('images', 10),
+  upload.array('images', 1),
   handleProductImageUpload
 );
 
@@ -214,14 +218,9 @@ router.delete('/:imageId', authenticateAdmin, async (req: Request, res: Response
     }
 
     // Delete from Cloudinary if it is a Cloudinary URL
-    if (img.image_url && img.image_url.includes('cloudinary.com')) {
+    if (img.cloudinary_public_id) {
       try {
-        // Extract public_id from Cloudinary URL
-        // URL pattern: .../upload/v.../royals/products/<productId>/<filename>
-        const match = img.image_url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
-        if (match?.[1]) {
-          await cloudinary.deleteImage(match[1]);
-        }
+        await cloudinary.deleteImage(img.cloudinary_public_id);
       } catch (cdnErr) {
         console.warn('Cloudinary delete warning (non-fatal):', cdnErr);
       }
@@ -412,18 +411,6 @@ router.patch(
         return res.status(400).json({ error: 'No replacement image file provided' });
       }
 
-      // Delete old Cloudinary asset
-      if (img.image_url && img.image_url.includes('cloudinary.com')) {
-        try {
-          const match = img.image_url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
-          if (match?.[1]) {
-            await cloudinary.deleteImage(match[1]);
-          }
-        } catch (cdnErr) {
-          console.warn('Cloudinary old-image delete warning (non-fatal):', cdnErr);
-        }
-      }
-
       // Upload replacement to Cloudinary
       const cloudinaryResponse = await cloudinary.uploadImage(
         file.buffer,
@@ -435,12 +422,28 @@ router.patch(
 
       const { error: updateErr } = await db
         .from('product_images')
-        .update({ image_url: cloudinaryResponse.secure_url, updated_at: now })
+        .update({
+          image_url: cloudinaryResponse.secure_url,
+          cloudinary_public_id: cloudinaryResponse.public_id,
+          updated_at: now
+        })
         .eq('id', imageId);
 
-      if (updateErr) throw updateErr;
+      if (updateErr) {
+        await cloudinary.deleteImage(cloudinaryResponse.public_id);
+        throw updateErr;
+      }
 
       await syncImagesJson(db, img.product_id);
+
+      // Preserve the current image until the replacement is persisted.
+      if (img.cloudinary_public_id) {
+        try {
+          await cloudinary.deleteImage(img.cloudinary_public_id);
+        } catch (cdnErr) {
+          console.warn('Cloudinary old-image delete warning (non-fatal):', cdnErr);
+        }
+      }
 
       res.json({
         success: true,

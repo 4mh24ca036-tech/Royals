@@ -82,8 +82,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const { admin, isAdminAuthenticated, login, logout } = useAdminAuth();
 
   // Login form states
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('Royals@2026');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -891,7 +891,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Royals@2026"
+                      placeholder="Enter your password"
                       className="w-full p-3 rounded-xl border border-[#D8CCC2] text-xs bg-[#FAF8F5] focus:outline-none focus:border-[#C5A880] focus:bg-white text-[#141414] font-mono"
                     />
                   </div>
@@ -920,12 +920,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <span>{isLoggingIn ? 'Authenticating Key...' : 'Unlock Royal Operations'}</span>
                 </button>
 
-                <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#E8DFD8] text-[11px] text-[#706B65] text-center space-y-1">
-                  <p>Preset Credentials:</p>
-                  <p className="font-mono text-[#141414]">
-                    User: <strong className="font-bold text-[#8C785A]">admin</strong> &nbsp;|&nbsp; Pass: <strong className="font-bold text-[#8C785A]">Royals@2026</strong>
-                  </p>
-                </div>
               </form>
             </div>
           </div>

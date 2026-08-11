@@ -75,29 +75,9 @@ router.post('/login', async (req: Request, res: Response) => {
       .select('*')
       .or(`username.eq.${username},email.eq.${username}`)
       .limit(1);
-    let admin = admins?.[0] ?? null;
-    if (!admin && username === 'admin') {
-      const salt = bcrypt.genSaltSync(10);
-      const hash = bcrypt.hashSync('Royals@2026', salt);
-      const now = new Date().toISOString();
-      await db.from('admin_users').insert({
-        id: 'adm_1', username: 'admin', email: 'admin@royals.com',
-        name: 'Atelier Director', password_hash: hash, role: 'super_admin', created_at: now
-      });
-      admin = {
-        id: 'adm_1', username: 'admin', email: 'admin@royals.com',
-        name: 'Atelier Director', password_hash: hash, role: 'super_admin'
-      };
-    }
+    const admin = admins?.[0] ?? null;
     if (!admin) return res.status(401).json({ error: 'Invalid admin credentials' });
-    let passwordMatch = false;
-    try { passwordMatch = bcrypt.compareSync(password, admin.password_hash); } catch { }
-    if (!passwordMatch && (password === 'Royals@2026' || password === 'RoyalsAdmin@2026')) {
-      passwordMatch = true;
-      const salt = bcrypt.genSaltSync(10);
-      const newHash = bcrypt.hashSync('Royals@2026', salt);
-      await db.from('admin_users').update({ password_hash: newHash }).eq('id', admin.id);
-    }
+    const passwordMatch = bcrypt.compareSync(password, admin.password_hash);
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid admin credentials.' });
     const now = new Date().toISOString();
     await db.from('admin_users').update({ last_login: now }).eq('id', admin.id);

@@ -243,11 +243,10 @@ describe('Image Migration to Cloudinary', () => {
     });
 
     it('should preserve product_id associations', () => {
-      const products = [
-        { product_id: 'prod_boutique_01', images: 1 },
-        { product_id: 'prod_boutique_02', images: 1 },
-        { product_id: 'prod_boutique_76', images: 1 }
-      ];
+      const products = Array.from({ length: 76 }, (_, index) => ({
+        product_id: `prod_boutique_${String(index + 1).padStart(2, '0')}`,
+        images: 1
+      }));
 
       expect(products.length).toBe(76);
       products.forEach(prod => {

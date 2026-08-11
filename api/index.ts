@@ -15,6 +15,7 @@ import { config as loadEnv } from 'dotenv';
 loadEnv();
 
 import express from 'express';
+import multer from 'multer';
 import productsRouter from '../server/routes/products.js';
 import ordersRouter from '../server/routes/orders.js';
 import adminRouter from '../server/routes/admin.js';
@@ -93,6 +94,19 @@ app.use('/api/auth', authRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/banners', bannersRouter);
 app.use('/api/categories', categoriesRouter);
+
+app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'IMAGE_TOO_LARGE', message: 'Image exceeds the maximum allowed size of 4 MB.' });
+    }
+    return res.status(400).json({ error: 'MULTIPART_UPLOAD_ERROR', message: err.message });
+  }
+  if (err instanceof Error && (err.message.includes('Only JPEG') || err.message.includes('multipart'))) {
+    return res.status(400).json({ error: 'INVALID_IMAGE_UPLOAD', message: err.message });
+  }
+  next(err);
+});
 
 // ── 404 fallback for unmatched /api/* ─────────────────────────────────────
 app.use('/api/*', (_req, res) => {

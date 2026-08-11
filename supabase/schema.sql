@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS product_images (
   id            TEXT PRIMARY KEY,
   product_id    TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   image_url     TEXT NOT NULL,
+  cloudinary_public_id TEXT,
   display_order INTEGER NOT NULL DEFAULT 0,
   is_cover      BOOLEAN NOT NULL DEFAULT FALSE,
   view_type     TEXT NOT NULL DEFAULT 'gallery',
@@ -83,6 +84,8 @@ CREATE TABLE IF NOT EXISTS product_images (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_images_order ON product_images(product_id, display_order);

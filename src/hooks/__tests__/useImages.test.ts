@@ -131,7 +131,9 @@ describe('useImages Hooks', () => {
 
       const { result } = renderHook(() => useDeleteProductImage());
 
-      await expect(result.current.deleteImage('img_1')).rejects.toThrow(errorMessage);
+      await act(async () => {
+        await expect(result.current.deleteImage('img_1')).rejects.toThrow(errorMessage);
+      });
       expect(result.current.error).toContain(errorMessage);
     });
   });

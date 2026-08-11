@@ -214,21 +214,25 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
     if (!fileArr.length) return;
 
     const invalid = fileArr.find(
-      (f) => !['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(f.type) || f.size > 10 * 1024 * 1024
+      (f) => !['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(f.type) || f.size > 4 * 1024 * 1024
     );
     if (invalid) {
-      notify('Only JPEG/PNG/WebP images up to 10 MB each are accepted.', 'error');
+      notify('Only JPEG/PNG/WebP images up to 4 MB each are accepted.', 'error');
       return;
     }
 
     setUploadProgress(`Uploading ${fileArr.length} image(s)…`);
     setIsLoading(true);
     try {
-      const result = await uploadImages(productId, fileArr);
+      let uploadedCount = 0;
+      for (const file of fileArr) {
+        const result = await uploadImages(productId, [file]);
+        uploadedCount += result.images.length;
+      }
       const fresh = await fetchImages(productId);
       setImages(fresh);
       onImagesChanged?.(fresh);
-      notify(`${result.images.length} image(s) uploaded successfully.`, 'success');
+      notify(`${uploadedCount} image(s) uploaded successfully.`, 'success');
     } catch (e: any) {
       notify(e.message, 'error');
     } finally {
@@ -242,8 +246,8 @@ export const AdminImageManager: React.FC<AdminImageManagerProps> = ({
 
   const handleReplace = async (file: File) => {
     if (!replacingId) return;
-    if (file.size > 10 * 1024 * 1024) {
-      notify('Image must be under 10 MB.', 'error');
+    if (file.size > 4 * 1024 * 1024) {
+      notify('Image must be under 4 MB.', 'error');
       return;
     }
     setIsLoading(true);

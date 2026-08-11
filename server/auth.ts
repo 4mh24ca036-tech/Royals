@@ -1,7 +1,13 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ROYALS_HAUTE_COUTURE_SECRET_KEY_2026';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET must be set in the environment before authentication can be used.');
+  }
+  return secret;
+}
 
 export interface UserJwtPayload {
   id: string;
@@ -19,11 +25,11 @@ export interface AdminJwtPayload {
 }
 
 export function generateUserToken(payload: UserJwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 }
 
 export function generateAdminToken(payload: AdminJwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '1d' });
 }
 
 export function authenticateUser(req: Request & { user?: UserJwtPayload }, res: Response, next: NextFunction) {
@@ -34,7 +40,7 @@ export function authenticateUser(req: Request & { user?: UserJwtPayload }, res: 
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserJwtPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as UserJwtPayload;
     req.user = decoded;
     next();
   } catch (err) {
@@ -50,7 +56,7 @@ export function authenticateAdmin(req: Request & { admin?: AdminJwtPayload }, re
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AdminJwtPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as AdminJwtPayload;
     if (decoded.role !== 'super_admin' && decoded.role !== 'admin') {
       return res.status(403).json({ error: 'Insufficient administrative privileges' });
     }
