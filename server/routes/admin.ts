@@ -369,13 +369,27 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
   try {
     const db = getDb();
     const now = new Date().toISOString();
-    const {
-      title, categoryId, categoryName, price, discountPrice,
-      stock, fabric, embroidery, color, sizes, description,
-      careInstructions, images, isFeatured, isNewArrival, displayOrder
-    } = req.body;
-    if (!title || !categoryId) {
-      return res.status(400).json({ error: 'title and categoryId are required' });
+    // Accept both snake_case (sent by the admin frontend) and camelCase for compatibility
+    const body = req.body;
+    const title = body.title;
+    const category_id = body.category_id ?? body.categoryId;
+    const category_name = body.category_name ?? body.categoryName;
+    const price = body.price;
+    const discount_price = body.discount_price ?? body.discountPrice;
+    const stock = body.stock;
+    const fabric = body.fabric;
+    const embroidery = body.embroidery;
+    const color = body.color;
+    const sizes = body.sizes;
+    const description = body.description;
+    const care_instructions = body.care_instructions ?? body.careInstructions;
+    const images = body.images;
+    const is_featured = body.is_featured ?? body.isFeatured;
+    const is_new_arrival = body.is_new_arrival ?? body.isNewArrival;
+    const displayOrder = body.display_order ?? body.displayOrder;
+
+    if (!title || !category_id) {
+      return res.status(400).json({ error: 'title and category_id are required' });
     }
     const id = `prod_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     let slug = buildSlug(title);
@@ -384,13 +398,16 @@ router.post('/products', authenticateAdmin, async (req: Request, res: Response) 
     const sizeList = asStringList(sizes);
     const imageList = asStringList(images);
     const { error: insertErr } = await db.from('products').insert({
-      id, title, slug, category_id: categoryId, category_name: categoryName || '',
-      price: Number(price), discount_price: discountPrice ? Number(discountPrice) : null,
+      id, title, slug,
+      category_id,
+      category_name: category_name || '',
+      price: Number(price),
+      discount_price: discount_price ? Number(discount_price) : null,
       stock: Number(stock ?? 10), fabric: fabric || null, embroidery: embroidery || null,
       color: color || null, sizes_json: JSON.stringify(sizeList),
-      description: description || '', care_instructions: careInstructions || null,
+      description: description || '', care_instructions: care_instructions || null,
       images_json: JSON.stringify(imageList), rating: 4.8, review_count: 0,
-      is_featured: Boolean(isFeatured), is_new_arrival: Boolean(isNewArrival),
+      is_featured: Boolean(is_featured), is_new_arrival: Boolean(is_new_arrival),
       display_order: Number(displayOrder ?? 0), created_at: now, updated_at: now
     });
     if (insertErr) throw insertErr;
@@ -417,29 +434,44 @@ router.put('/products/:id', authenticateAdmin, async (req: Request, res: Respons
     const { data: existing, error: fetchErr } = await db
       .from('products').select('*').eq('id', id).maybeSingle();
     if (fetchErr || !existing) return res.status(404).json({ error: 'Product not found' });
-    const {
-      title, categoryId, categoryName, price, discountPrice,
-      stock, fabric, embroidery, color, sizes, description,
-      careInstructions, images, isFeatured, isNewArrival, displayOrder
-    } = req.body;
+
+    // Accept both snake_case (sent by the admin frontend) and camelCase for compatibility
+    const body = req.body;
+    const title = body.title;
+    const category_id = body.category_id ?? body.categoryId;
+    const category_name = body.category_name ?? body.categoryName;
+    const price = body.price;
+    const discount_price = body.discount_price ?? body.discountPrice;
+    const stock = body.stock;
+    const fabric = body.fabric;
+    const embroidery = body.embroidery;
+    const color = body.color;
+    const sizes = body.sizes;
+    const description = body.description;
+    const care_instructions = body.care_instructions ?? body.careInstructions;
+    const images = body.images;
+    const is_featured = body.is_featured ?? body.isFeatured;
+    const is_new_arrival = body.is_new_arrival ?? body.isNewArrival;
+    const displayOrder = body.display_order ?? body.displayOrder;
+
     const sizeList = sizes !== undefined ? asStringList(sizes) : JSON.parse(existing.sizes_json ?? '[]');
     const imageList = images !== undefined ? asStringList(images) : JSON.parse(existing.images_json ?? '[]');
     const updates: Record<string, any> = { updated_at: now };
     if (title !== undefined) { updates.title = title; updates.slug = buildSlug(title); }
-    if (categoryId !== undefined) updates.category_id = categoryId;
-    if (categoryName !== undefined) updates.category_name = categoryName;
+    if (category_id !== undefined) updates.category_id = category_id;
+    if (category_name !== undefined) updates.category_name = category_name;
     if (price !== undefined) updates.price = Number(price);
-    if (discountPrice !== undefined) updates.discount_price = discountPrice ? Number(discountPrice) : null;
+    if (discount_price !== undefined) updates.discount_price = discount_price ? Number(discount_price) : null;
     if (stock !== undefined) updates.stock = Number(stock);
     if (fabric !== undefined) updates.fabric = fabric || null;
     if (embroidery !== undefined) updates.embroidery = embroidery || null;
     if (color !== undefined) updates.color = color || null;
     if (sizes !== undefined) updates.sizes_json = JSON.stringify(sizeList);
     if (description !== undefined) updates.description = description;
-    if (careInstructions !== undefined) updates.care_instructions = careInstructions || null;
+    if (care_instructions !== undefined) updates.care_instructions = care_instructions || null;
     if (images !== undefined) updates.images_json = JSON.stringify(imageList);
-    if (isFeatured !== undefined) updates.is_featured = Boolean(isFeatured);
-    if (isNewArrival !== undefined) updates.is_new_arrival = Boolean(isNewArrival);
+    if (is_featured !== undefined) updates.is_featured = Boolean(is_featured);
+    if (is_new_arrival !== undefined) updates.is_new_arrival = Boolean(is_new_arrival);
     if (displayOrder !== undefined) updates.display_order = Number(displayOrder);
     const { error: updateErr } = await db.from('products').update(updates).eq('id', id);
     if (updateErr) throw updateErr;
